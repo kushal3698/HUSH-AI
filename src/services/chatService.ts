@@ -7,7 +7,10 @@ import {
   MiniGameData, 
   VaultConnection,
   RevealRequestPayload,
-  RevealResponsePayload
+  RevealResponsePayload,
+  MediaAttachment,
+  ConversationProgress,
+  CallSignalPayload
 } from '../types';
 
 const SESSION_KEY = 'hush_ai_user_session';
@@ -26,6 +29,10 @@ type GameVotedCallback = (data: { gameId: string; userId: string; choice: string
 type ConnectionOfferedCallback = (data: { senderAlias: string; reconnectCode: string }) => void;
 type RevealRequestedCallback = (payload: RevealRequestPayload) => void;
 type RevealRespondedCallback = (payload: RevealResponsePayload) => void;
+type ProgressCallback = (progress: ConversationProgress) => void;
+type MediaRejectedCallback = (error: string) => void;
+type CallRejectedCallback = (error: string) => void;
+type CallSignalCallback = (signal: CallSignalPayload) => void;
 
 class RealtimeChatService {
   private socket: WebSocket | null = null;
@@ -45,6 +52,10 @@ class RealtimeChatService {
   private onConnectionOfferedListener: ConnectionOfferedCallback | null = null;
   private onRevealRequestedListener: RevealRequestedCallback | null = null;
   private onRevealRespondedListener: RevealRespondedCallback | null = null;
+  private onProgressListener: ProgressCallback | null = null;
+  private onMediaRejectedListener: MediaRejectedCallback | null = null;
+  private onCallRejectedListener: CallRejectedCallback | null = null;
+  private onCallSignalListener: CallSignalCallback | null = null;
 
   constructor() {
     this.initBroadcastChannel();
@@ -137,6 +148,53 @@ class RealtimeChatService {
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
 
         this.onMatchedListener?.(room);
+
+        if (data.progress) {
+          this.onProgressListener?.(data.progress);
+        }
+        break;
+      }
+
+      case 'CONVERSATION_PROGRESS': {
+        if (data.progress) {
+          this.onProgressListener?.(data.progress);
+        }
+        break;
+      }
+
+      case 'NEW_MEDIA_MESSAGE': {
+        const msg: ChatMessage = {
+          id: data.id || `msg_media_${Date.now()}`,
+          sender: 'stranger',
+          text: data.text || '',
+          timestamp: data.timestamp || Date.now(),
+          media: data.media,
+          status: 'delivered'
+        };
+        this.onMessageListener?.(msg);
+        break;
+      }
+
+      case 'MEDIA_REJECTED': {
+        this.onMediaRejectedListener?.(data.error);
+        if (data.progress) {
+          this.onProgressListener?.(data.progress);
+        }
+        break;
+      }
+
+      case 'CALL_SIGNAL': {
+        this.onCallSignalListener?.({
+          signalType: data.signalType,
+          callType: data.callType,
+          payload: data.payload,
+          senderAlias: data.senderAlias
+        });
+        break;
+      }
+
+      case 'CALL_REJECTED': {
+        this.onCallRejectedListener?.(data.error);
         break;
       }
 
@@ -272,6 +330,29 @@ class RealtimeChatService {
         roomId: this.currentRoom.id,
         senderId: session.userId,
         id: msg.id
+      });
+    } else if (data.type === 'TAB_MEDIA_MESSAGE' && this.currentRoom && data.roomId === this.currentRoom.id) {
+      const msg: ChatMessage = {
+        id: data.id || `msg_tab_media_${Date.now()}`,
+        sender: 'stranger',
+        text: data.text || '',
+        timestamp: Date.now(),
+        media: data.media,
+        status: 'delivered'
+      };
+      this.onMessageListener?.(msg);
+      this.broadcastChannel?.postMessage({
+        type: 'TAB_MESSAGE_DELIVERED',
+        roomId: this.currentRoom.id,
+        senderId: session.userId,
+        id: msg.id
+      });
+    } else if (data.type === 'TAB_CALL_SIGNAL' && this.currentRoom && data.roomId === this.currentRoom.id) {
+      this.onCallSignalListener?.({
+        signalType: data.signalType,
+        callType: data.callType,
+        payload: data.payload,
+        senderAlias: data.senderAlias
       });
     } else if (data.type === 'TAB_MESSAGE_DELIVERED' && this.currentRoom && data.roomId === this.currentRoom.id) {
       this.onMessageDeliveredListener?.(data.id);
@@ -574,6 +655,65 @@ class RealtimeChatService {
     }
   }
 
+  // Media & Calling Handlers
+  sendMedia(media: MediaAttachment, text = ''): string {
+    if (!this.currentRoom) return '';
+
+    const messageId = `media_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({
+        type: 'SEND_MEDIA',
+        id: messageId,
+        media,
+        text
+      }));
+    } else {
+      const session = this.getUserSession();
+      this.broadcastChannel?.postMessage({
+        type: 'TAB_MEDIA_MESSAGE',
+        roomId: this.currentRoom.id,
+        id: messageId,
+        senderId: session.userId,
+        media,
+        text
+      });
+    }
+    return messageId;
+  }
+
+  sendCallSignal(signal: CallSignalPayload) {
+    if (!this.currentRoom) return;
+
+    const session = this.getUserSession();
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({
+        type: 'CALL_SIGNAL',
+        signalType: signal.signalType,
+        callType: signal.callType,
+        payload: signal.payload,
+        senderAlias: session.anonymousAlias
+      }));
+    } else {
+      this.broadcastChannel?.postMessage({
+        type: 'TAB_CALL_SIGNAL',
+        roomId: this.currentRoom.id,
+        senderId: session.userId,
+        signalType: signal.signalType,
+        callType: signal.callType,
+        payload: signal.payload,
+        senderAlias: session.anonymousAlias
+      });
+    }
+  }
+
+  requestProgress() {
+    if (!this.currentRoom) return;
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: 'GET_PROGRESS' }));
+    }
+  }
+
   leaveChat() {
     if (this.currentRoom) {
       if (this.socket?.readyState === WebSocket.OPEN) {
@@ -630,6 +770,22 @@ class RealtimeChatService {
 
   onPartnerLeft(callback: PartnerLeftCallback) {
     this.onPartnerLeftListener = callback;
+  }
+
+  onProgress(callback: ProgressCallback) {
+    this.onProgressListener = callback;
+  }
+
+  onMediaRejected(callback: MediaRejectedCallback) {
+    this.onMediaRejectedListener = callback;
+  }
+
+  onCallSignal(callback: CallSignalCallback) {
+    this.onCallSignalListener = callback;
+  }
+
+  onCallRejected(callback: CallRejectedCallback) {
+    this.onCallRejectedListener = callback;
   }
 }
 
