@@ -36,6 +36,15 @@ export interface MiniGameData {
   initiatorAlias: string;
 }
 
+export interface MediaAttachment {
+  type: 'image' | 'video' | 'audio';
+  url: string;
+  caption?: string;
+  name?: string;
+  size?: number;
+  duration?: number;
+}
+
 export interface ChatMessage {
   id: string;
   sender: 'me' | 'stranger' | 'system';
@@ -43,7 +52,35 @@ export interface ChatMessage {
   timestamp: number;
   isAiSuggested?: boolean;
   gameData?: MiniGameData;
+  media?: MediaAttachment;
   status?: 'sent' | 'delivered' | 'read';
+}
+
+export interface ConversationProgress {
+  myMessageCount: number;
+  strangerMessageCount: number;
+  thresholdRequired: number; // 10
+  mediaUnlocked: boolean;
+  justUnlocked?: boolean;
+}
+
+export type CallType = 'audio' | 'video';
+export type CallState = 'idle' | 'calling' | 'incoming' | 'connected' | 'ended';
+
+export interface CallSignalPayload {
+  signalType: 'offer' | 'answer' | 'ice-candidate' | 'end' | 'reject';
+  callType: CallType;
+  payload?: any;
+  senderAlias?: string;
+}
+
+export interface CallSession {
+  callType: CallType;
+  partnerAlias: string;
+  state: CallState;
+  startTime?: number;
+  isMuted?: boolean;
+  isVideoOff?: boolean;
 }
 
 export interface RevealProfile {
