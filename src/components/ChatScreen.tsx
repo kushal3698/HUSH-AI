@@ -6,32 +6,46 @@ import {
   Flag, 
   X, 
   RotateCw, 
-  Info,
-  ArrowRight,
-  UserCheck,
-  Globe,
-  Share2,
-  Gamepad2,
-  BookmarkCheck,
-  LifeBuoy,
-  Check,
-  CheckCheck,
-  HeartHandshake,
-  ShieldCheck
+  Info, 
+  ArrowRight, 
+  UserCheck, 
+  Globe, 
+  Share2, 
+  Gamepad2, 
+  BookmarkCheck, 
+  LifeBuoy, 
+  Check, 
+  CheckCheck, 
+  HeartHandshake, 
+  ShieldCheck, 
+  Lock, 
+  Unlock, 
+  Video as VideoIcon, 
+  Phone, 
+  Mic, 
+  Paperclip, 
+  StopCircle, 
+  PartyPopper 
 } from 'lucide-react';
 import { 
   ChatMessage, 
   ChatRoom, 
   MiniGameData, 
-  VaultConnection,
-  RevealProfile,
-  RevealRequestPayload
+  VaultConnection, 
+  RevealProfile, 
+  RevealRequestPayload, 
+  MediaAttachment, 
+  ConversationProgress, 
+  CallType, 
+  CallState 
 } from '../types';
 import { chatService } from '../services/chatService';
 import { aiService } from '../services/aiService';
 import { gameService } from '../services/gameService';
 import { MiniGameCard } from './MiniGameCard';
 import { MutualRevealModal } from './MutualRevealModal';
+import { LockedFeatureModal } from './LockedFeatureModal';
+import { CallModal } from './CallModal';
 
 interface ChatScreenProps {
   room: ChatRoom;
@@ -61,6 +75,30 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [endReason, setEndReason] = useState<string>('Chat ended.');
   const [translations, setTranslations] = useState<Record<string, string>>({});
   
+  // Media & Call Threshold States
+  const [progress, setProgress] = useState<ConversationProgress>({
+    myMessageCount: 0,
+    strangerMessageCount: 0,
+    thresholdRequired: 10,
+    mediaUnlocked: false
+  });
+  const [unlockedCelebration, setUnlockedCelebration] = useState(false);
+  const [isLockedModalOpen, setIsLockedModalOpen] = useState(false);
+  const [attemptedLockedFeature, setAttemptedLockedFeature] = useState<'media' | 'voice' | 'call_audio' | 'call_video' | null>(null);
+
+  // Calling States
+  const [callState, setCallState] = useState<CallState>('idle');
+  const [callType, setCallType] = useState<CallType>('audio');
+  const [isCallModalOpen, setIsCallModalOpen] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(false);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+
+  // Voice recording
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+
   // Game & Rescue states
   const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
   const [showRescue, setShowRescue] = useState(false);
@@ -78,6 +116,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const pendingOfferRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const voiceStreamRef = useRef<MediaStream | null>(null);
+  const recordingTimerRef = useRef<number | null>(null);
 
   // Message counts & Eligibility
   const messagesCount = {
@@ -264,12 +309,397 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       ]);
     });
 
+    // Authoritative conversation progress updates
+    chatService.onProgress((newProg) => {
+      setProgress((prev) => {
+        if (!prev.mediaUnlocked && newProg.mediaUnlocked) {
+          setUnlockedCelebration(true);
+          setSaveToast('🎉 Mutual threshold reached! Media sharing, voice notes, and calls are now unlocked!');
+          setTimeout(() => setUnlockedCelebration(false), 8000);
+        }
+        return newProg;
+      });
+    });
+
+    // Backend security rejection notifications
+    chatService.onMediaRejected((err) => {
+      setSaveToast(`🔒 ${err}`);
+      setAttemptedLockedFeature('media');
+      setIsLockedModalOpen(true);
+    });
+
+    chatService.onCallRejected((err) => {
+      setSaveToast(`🔒 ${err}`);
+      setIsCallModalOpen(false);
+      setAttemptedLockedFeature('call_audio');
+      setIsLockedModalOpen(true);
+    });
+
+    // WebRTC Call Signaling
+    chatService.onCallSignal(async (signal) => {
+      if (signal.signalType === 'offer') {
+        setCallType(signal.callType);
+        setCallState('incoming');
+        setIsCallModalOpen(true);
+        pendingOfferRef.current = signal.payload;
+      } else if (signal.signalType === 'answer') {
+        if (peerConnectionRef.current && signal.payload && !signal.payload.simulated) {
+          try {
+            await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(signal.payload));
+          } catch (e) {
+            console.warn('Could not set remote description:', e);
+          }
+        }
+        setCallState('connected');
+      } else if (signal.signalType === 'ice-candidate') {
+        if (peerConnectionRef.current && signal.payload) {
+          try {
+            await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(signal.payload));
+          } catch (e) {
+            console.warn('Could not add ICE candidate:', e);
+          }
+        }
+      } else if (signal.signalType === 'end' || signal.signalType === 'reject') {
+        handleEndCallLocal();
+      }
+    });
+
     return () => {
       if (typingTimeoutRef.current) {
         window.clearTimeout(typingTimeoutRef.current);
       }
+      if (recordingTimerRef.current) {
+        window.clearInterval(recordingTimerRef.current);
+      }
+      if (voiceStreamRef.current) {
+        voiceStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      if (localStream) {
+        localStream.getTracks().forEach((t) => t.stop());
+      }
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
     };
   }, [room]);
+
+  // Calling & Signaling Actions
+  const createPeerConnection = (type: CallType) => {
+    try {
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+      });
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          chatService.sendCallSignal({
+            signalType: 'ice-candidate',
+            callType: type,
+            payload: event.candidate
+          });
+        }
+      };
+
+      pc.ontrack = (event) => {
+        if (event.streams && event.streams[0]) {
+          setRemoteStream(event.streams[0]);
+        }
+      };
+
+      peerConnectionRef.current = pc;
+      return pc;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleStartCall = async (type: CallType) => {
+    if (!progress.mediaUnlocked) {
+      setAttemptedLockedFeature(type === 'video' ? 'call_video' : 'call_audio');
+      setIsLockedModalOpen(true);
+      return;
+    }
+
+    setCallType(type);
+    setCallState('calling');
+    setIsCallModalOpen(true);
+
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: type === 'video'
+        });
+        setLocalStream(stream);
+
+        const pc = createPeerConnection(type);
+        if (pc) {
+          stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+
+          chatService.sendCallSignal({
+            signalType: 'offer',
+            callType: type,
+            payload: offer
+          });
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Real camera/mic unavailable or prompt cancelled:', err);
+    }
+
+    // Graceful simulated call signaling for testing/environments without physical webcam
+    chatService.sendCallSignal({
+      signalType: 'offer',
+      callType: type,
+      payload: { simulated: true }
+    });
+  };
+
+  const handleAcceptCall = async () => {
+    setCallState('connected');
+
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: callType === 'video'
+        });
+        setLocalStream(stream);
+
+        const pc = createPeerConnection(callType);
+        if (pc) {
+          stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+          if (pendingOfferRef.current && !pendingOfferRef.current.simulated) {
+            await pc.setRemoteDescription(new RTCSessionDescription(pendingOfferRef.current));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+
+            chatService.sendCallSignal({
+              signalType: 'answer',
+              callType,
+              payload: answer
+            });
+            return;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Real camera/mic unavailable on accept:', err);
+    }
+
+    chatService.sendCallSignal({
+      signalType: 'answer',
+      callType,
+      payload: { simulated: true }
+    });
+  };
+
+  const handleDeclineCall = () => {
+    chatService.sendCallSignal({
+      signalType: 'reject',
+      callType
+    });
+    handleEndCallLocal();
+  };
+
+  const handleEndCall = () => {
+    chatService.sendCallSignal({
+      signalType: 'end',
+      callType
+    });
+    handleEndCallLocal();
+  };
+
+  const handleEndCallLocal = () => {
+    if (localStream) {
+      localStream.getTracks().forEach((t) => t.stop());
+      setLocalStream(null);
+    }
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    setRemoteStream(null);
+    setCallState('ended');
+    setTimeout(() => {
+      setIsCallModalOpen(false);
+      setCallState('idle');
+    }, 800);
+  };
+
+  const handleToggleMute = () => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsMuted(!audioTrack.enabled);
+        return;
+      }
+    }
+    setIsMuted((prev) => !prev);
+  };
+
+  const handleToggleVideo = () => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsVideoOff(!videoTrack.enabled);
+        return;
+      }
+    }
+    setIsVideoOff((prev) => !prev);
+  };
+
+  // Media Attachment & Voice Message Actions
+  const handleAttachmentClick = () => {
+    if (!progress.mediaUnlocked) {
+      setAttemptedLockedFeature('media');
+      setIsLockedModalOpen(true);
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const isVideo = file.type.startsWith('video');
+    const isImage = file.type.startsWith('image');
+    if (!isVideo && !isImage) {
+      alert('Please select an image or video file.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const media: MediaAttachment = {
+        type: isVideo ? 'video' : 'image',
+        url: dataUrl,
+        name: file.name,
+        size: file.size
+      };
+
+      const msgId = chatService.sendMedia(media, inputText.trim());
+      const myMsg: ChatMessage = {
+        id: msgId || `media_${Date.now()}`,
+        sender: 'me',
+        text: inputText.trim(),
+        timestamp: Date.now(),
+        media,
+        status: 'sent'
+      };
+
+      setMessages((prev) => [...prev, myMsg]);
+      setInputText('');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleVoiceClick = () => {
+    if (!progress.mediaUnlocked) {
+      setAttemptedLockedFeature('voice');
+      setIsLockedModalOpen(true);
+      return;
+    }
+
+    if (isRecordingAudio) {
+      stopVoiceRecording();
+    } else {
+      startVoiceRecording();
+    }
+  };
+
+  const startVoiceRecording = async () => {
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        voiceStreamRef.current = stream;
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+
+        mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          const reader = new FileReader();
+          reader.onload = () => {
+            const audioUrl = reader.result as string;
+            const media: MediaAttachment = {
+              type: 'audio',
+              url: audioUrl,
+              duration: recordingSeconds
+            };
+            const msgId = chatService.sendMedia(media);
+            const myMsg: ChatMessage = {
+              id: msgId || `audio_${Date.now()}`,
+              sender: 'me',
+              text: '🎤 Voice message',
+              timestamp: Date.now(),
+              media,
+              status: 'sent'
+            };
+            setMessages((prev) => [...prev, myMsg]);
+          };
+          reader.readAsDataURL(audioBlob);
+          stream.getTracks().forEach((t) => t.stop());
+        };
+
+        mediaRecorder.start();
+        setIsRecordingAudio(true);
+        setRecordingSeconds(0);
+        recordingTimerRef.current = window.setInterval(() => {
+          setRecordingSeconds((prev) => prev + 1);
+        }, 1000);
+        return;
+      }
+    } catch (err) {
+      console.warn('Microphone access unavailable:', err);
+    }
+
+    // Graceful simulated voice note fallback
+    const simulatedMedia: MediaAttachment = {
+      type: 'audio',
+      url: 'https://actions.google.com/sounds/v1/human_voices/applause_moderate.ogg',
+      duration: 3
+    };
+    const msgId = chatService.sendMedia(simulatedMedia);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: msgId || `audio_${Date.now()}`,
+        sender: 'me',
+        text: '🎤 Voice message (simulated)',
+        timestamp: Date.now(),
+        media: simulatedMedia,
+        status: 'sent'
+      }
+    ]);
+  };
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorderRef.current && isRecordingAudio) {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecordingAudio(false);
+    if (recordingTimerRef.current) {
+      window.clearInterval(recordingTimerRef.current);
+    }
+  };
 
   // Handle AI suggestion populate
   useEffect(() => {
@@ -532,6 +962,48 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             </button>
           )}
 
+          {/* Audio Call Button */}
+          {!isChatEnded && (
+            <button
+              onClick={() => handleStartCall('audio')}
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold flex items-center space-x-1.5 transition-all ${
+                progress.mediaUnlocked
+                  ? 'bg-emerald-950/70 hover:bg-emerald-900/80 border-emerald-500/50 text-emerald-300 hover:text-white shadow-sm'
+                  : 'bg-slate-800/60 hover:bg-slate-800 text-slate-400 border-slate-700/60'
+              }`}
+              title={
+                progress.mediaUnlocked
+                  ? 'Start Encrypted Voice Call'
+                  : `Voice Call Locked (You: ${progress.myMessageCount}/10, Partner: ${progress.strangerMessageCount}/10)`
+              }
+            >
+              <Phone className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Audio</span>
+              {!progress.mediaUnlocked && <Lock className="w-2.5 h-2.5 text-amber-400" />}
+            </button>
+          )}
+
+          {/* Video Call Button */}
+          {!isChatEnded && (
+            <button
+              onClick={() => handleStartCall('video')}
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold flex items-center space-x-1.5 transition-all ${
+                progress.mediaUnlocked
+                  ? 'bg-purple-950/70 hover:bg-purple-900/80 border-purple-500/50 text-purple-300 hover:text-white shadow-sm'
+                  : 'bg-slate-800/60 hover:bg-slate-800 text-slate-400 border-slate-700/60'
+              }`}
+              title={
+                progress.mediaUnlocked
+                  ? 'Start Live Video Call'
+                  : `Video Call Locked (You: ${progress.myMessageCount}/10, Partner: ${progress.strangerMessageCount}/10)`
+              }
+            >
+              <VideoIcon className="w-3.5 h-3.5" />
+              <span className="hidden lg:inline">Video</span>
+              {!progress.mediaUnlocked && <Lock className="w-2.5 h-2.5 text-amber-400" />}
+            </button>
+          )}
+
           {/* Save Connection / Vault Handshake */}
           {!isChatEnded && (
             <button
@@ -600,7 +1072,91 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         </div>
       </div>
 
-      {/* Messages Scroll Area */}
+      {/* Mutual Conversation Threshold Progress Banner */}
+      {!isChatEnded && (
+        <div className="px-4 py-2 bg-[#090e20] border-b border-slate-800/80">
+          {!progress.mediaUnlocked ? (
+            <div 
+              onClick={() => {
+                setAttemptedLockedFeature(null);
+                setIsLockedModalOpen(true);
+              }}
+              className="w-full p-2.5 rounded-2xl bg-gradient-to-r from-purple-950/60 via-slate-900/90 to-indigo-950/60 border border-purple-500/30 hover:border-purple-500/60 cursor-pointer transition-all shadow-md space-y-2 group"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-1">
+                <div className="flex items-center space-x-1.5">
+                  <Lock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                  <span className="font-semibold text-slate-200">
+                    Build your connection: send 10 messages each to unlock media and calls.
+                  </span>
+                </div>
+                <span className="text-[11px] text-purple-300 font-mono font-bold bg-purple-950/80 px-2 py-0.5 rounded-full border border-purple-700/50 self-start sm:self-auto">
+                  You: {Math.min(progress.myMessageCount, 10)}/10 messages | Other person: {Math.min(progress.strangerMessageCount, 10)}/10 messages
+                </span>
+              </div>
+
+              {/* Dual Progress Bars */}
+              <div className="grid grid-cols-2 gap-3 text-[10px]">
+                <div className="space-y-1">
+                  <div className="flex justify-between text-slate-400">
+                    <span>You</span>
+                    <span className={progress.myMessageCount >= 10 ? 'text-emerald-400 font-bold' : 'text-purple-300'}>
+                      {Math.min(progress.myMessageCount, 10)}/10 {progress.myMessageCount >= 10 && '✓'}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-purple-600 to-indigo-500 transition-all duration-300 rounded-full"
+                      style={{ width: `${Math.min(progress.myMessageCount * 10, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-slate-400">
+                    <span>{room.strangerAlias}</span>
+                    <span className={progress.strangerMessageCount >= 10 ? 'text-emerald-400 font-bold' : 'text-cyan-300'}>
+                      {Math.min(progress.strangerMessageCount, 10)}/10 {progress.strangerMessageCount >= 10 && '✓'}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all duration-300 rounded-full"
+                      style={{ width: `${Math.min(progress.strangerMessageCount * 10, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="w-full px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-teal-950/40 to-slate-900 border border-emerald-500/40 flex items-center justify-between text-xs text-emerald-300 shadow-sm animate-fade-in">
+              <div className="flex items-center space-x-2 font-medium">
+                <Unlock className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <span>✨ Media & Calls Unlocked: Photos, videos, voice messages, audio and video calls are active!</span>
+              </div>
+              <span className="text-[10px] bg-emerald-900/70 px-2 py-0.5 rounded-full border border-emerald-700 text-emerald-200 font-semibold whitespace-nowrap">
+                10+ Exchanged
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Unlocked Celebration Banner */}
+      {unlockedCelebration && (
+        <div className="mx-4 my-2 p-3.5 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white shadow-2xl flex items-center justify-between animate-bounce">
+          <div className="flex items-center space-x-2.5 text-xs font-bold">
+            <PartyPopper className="w-5 h-5" />
+            <span>🎉 Milestone Reached! You both sent 10+ messages! Media sharing, voice notes, audio and video calls are unlocked!</span>
+          </div>
+          <button
+            onClick={() => setUnlockedCelebration(false)}
+            className="text-white/80 hover:text-white text-xs px-2 py-1 rounded-lg bg-black/20"
+          >
+            ✕
+          </button>
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
         {/* Mutually Revealed Identities Banner */}
         {revealedStrangerProfile && (
@@ -684,7 +1240,40 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       <span>AI Starter</span>
                     </div>
                   )}
-                  <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+
+                  {/* Render Attached Media if present */}
+                  {msg.media && (
+                    <div className="mb-2 rounded-xl overflow-hidden">
+                      {msg.media.type === 'image' && (
+                        <img
+                          src={msg.media.url}
+                          alt="Shared attachment"
+                          className="max-h-72 w-full object-cover rounded-xl cursor-pointer hover:opacity-95 transition-opacity"
+                          onClick={() => window.open(msg.media?.url, '_blank')}
+                        />
+                      )}
+                      {msg.media.type === 'video' && (
+                        <video
+                          src={msg.media.url}
+                          controls
+                          playsInline
+                          className="max-h-72 w-full rounded-xl bg-black"
+                        />
+                      )}
+                      {msg.media.type === 'audio' && (
+                        <div className="bg-black/40 p-2.5 rounded-xl border border-white/10 space-y-1">
+                          <audio src={msg.media.url} controls className="w-full max-w-xs" />
+                          {msg.media.duration && (
+                            <span className="text-[10px] text-slate-400 block">
+                              Voice message ({msg.media.duration}s)
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {msg.text && <p className="whitespace-pre-wrap break-words">{msg.text}</p>}
                   {translations[msg.id] && (
                     <div className="mt-2 pt-1.5 border-t border-slate-700/60 text-xs text-cyan-300 flex items-start space-x-1.5 animate-fade-in">
                       <Globe className="w-3.5 h-3.5 text-cyan-400 mt-0.5 flex-shrink-0" />
@@ -876,18 +1465,61 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             }}
             className="flex items-center space-x-2"
           >
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputText}
-              onChange={handleInputChange}
-              placeholder={`Message ${room.strangerAlias}...`}
-              className="flex-1 bg-slate-900/90 border border-slate-800 focus:border-purple-500/60 rounded-2xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500/40 transition-all"
-            />
+            {/* Attachment Button */}
+            <button
+              type="button"
+              onClick={handleAttachmentClick}
+              className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all flex-shrink-0 ${
+                progress.mediaUnlocked
+                  ? 'bg-slate-900 hover:bg-purple-950/60 border-slate-700/60 text-purple-300 hover:text-white shadow-sm'
+                  : 'bg-slate-900/60 text-slate-500 border-slate-800 hover:text-slate-400'
+              }`}
+              title={progress.mediaUnlocked ? 'Share photo or video' : 'Media locked (10 messages each)'}
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
+
+            {/* Voice Message Button */}
+            <button
+              type="button"
+              onClick={handleVoiceClick}
+              className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all flex-shrink-0 ${
+                isRecordingAudio
+                  ? 'bg-rose-600 text-white border-rose-500 animate-pulse shadow-lg shadow-rose-600/30'
+                  : progress.mediaUnlocked
+                  ? 'bg-slate-900 hover:bg-pink-950/60 border-slate-700/60 text-pink-300 hover:text-white shadow-sm'
+                  : 'bg-slate-900/60 text-slate-500 border-slate-800 hover:text-slate-400'
+              }`}
+              title={
+                isRecordingAudio 
+                  ? 'Recording audio... click to finish and send' 
+                  : progress.mediaUnlocked 
+                  ? 'Record voice note' 
+                  : 'Voice message locked (10 messages each)'
+              }
+            >
+              {isRecordingAudio ? <StopCircle className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+
+            <div className="relative flex-1">
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputText}
+                onChange={handleInputChange}
+                placeholder={
+                  isRecordingAudio
+                    ? `Recording voice message (${recordingSeconds}s)... click stop to send`
+                    : `Message ${room.strangerAlias}...`
+                }
+                disabled={isRecordingAudio}
+                className="w-full bg-slate-900/90 border border-slate-800 focus:border-purple-500/60 rounded-2xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500/40 transition-all disabled:opacity-60"
+              />
+            </div>
 
             <button
               type="submit"
-              disabled={!inputText.trim()}
+              disabled={!inputText.trim() || isRecordingAudio}
               className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-lg shadow-purple-600/30 transition-all focus:outline-none flex-shrink-0"
               aria-label="Send message"
             >
@@ -896,6 +1528,41 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           </form>
         </div>
       )}
+
+      {/* Hidden File Input for Image/Video Attachments */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,video/*"
+        onChange={handleFileSelected}
+        className="hidden"
+      />
+
+      {/* Locked Feature Explanation Modal */}
+      <LockedFeatureModal
+        isOpen={isLockedModalOpen}
+        onClose={() => setIsLockedModalOpen(false)}
+        progress={progress}
+        strangerAlias={room.strangerAlias}
+        attemptedFeature={attemptedLockedFeature}
+      />
+
+      {/* Audio & Video Call Modal */}
+      <CallModal
+        isOpen={isCallModalOpen}
+        callState={callState}
+        callType={callType}
+        partnerAlias={room.strangerAlias}
+        onAccept={handleAcceptCall}
+        onDecline={handleDeclineCall}
+        onEndCall={handleEndCall}
+        localStream={localStream}
+        remoteStream={remoteStream}
+        isMuted={isMuted}
+        isVideoOff={isVideoOff}
+        onToggleMute={handleToggleMute}
+        onToggleVideo={handleToggleVideo}
+      />
 
       {/* Mutual Reveal Modal */}
       <MutualRevealModal
