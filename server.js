@@ -72,7 +72,10 @@ function tryMatchUsers() {
         activeRooms[roomId] = {
           userA: { socket: userA.socket, userId: userA.userId, alias: userA.alias, messageCount: 0 },
           userB: { socket: userB.socket, userId: userB.userId, alias: userB.alias, messageCount: 0 },
-          mood: userA.mood
+          processedMessageIds: new Set(),
+          mediaUnlocked: false,
+          mood: userA.mood,
+          createdAt: Date.now()
         };
 
         socketToRoom.set(userA.socket, roomId);
@@ -80,12 +83,20 @@ function tryMatchUsers() {
 
         console.log(`[MATCH CREATED] Room ${roomId}: ${userA.alias} <---> ${userB.alias} (${userA.mood})`);
 
+        const initialProgress = {
+          myMessageCount: 0,
+          strangerMessageCount: 0,
+          thresholdRequired: 10,
+          mediaUnlocked: false
+        };
+
         send(userA.socket, {
           type: 'MATCHED',
           roomId,
           strangerId: userB.userId,
           strangerAlias: userB.alias,
-          mood: userA.mood
+          mood: userA.mood,
+          progress: initialProgress
         });
 
         send(userB.socket, {
@@ -93,7 +104,8 @@ function tryMatchUsers() {
           roomId,
           strangerId: userA.userId,
           strangerAlias: userA.alias,
-          mood: userB.mood
+          mood: userB.mood,
+          progress: initialProgress
         });
 
         broadcastQueueStatus();
@@ -142,23 +154,164 @@ wss.on('connection', (ws) => {
           if (!roomId || !activeRooms[roomId]) return;
 
           const room = activeRooms[roomId];
-          const senderUser = room.userA.socket === ws ? room.userA : room.userB;
-          senderUser.messageCount = (senderUser.messageCount || 0) + 1;
+          const isUserA = room.userA.socket === ws;
+          const senderUser = isUserA ? room.userA : room.userB;
+          const partnerUser = isUserA ? room.userB : room.userA;
+          const partnerSocket = partnerUser.socket;
 
-          const partnerSocket = room.userA.socket === ws ? room.userB.socket : room.userA.socket;
+          const msgId = typeof data.id === 'string' ? data.id.trim() : '';
+          const rawText = typeof data.text === 'string' ? data.text : '';
+          const trimmedText = rawText.trim();
 
+          const isAlreadyProcessed = msgId ? room.processedMessageIds.has(msgId) : false;
+          const isAi = Boolean(data.isAiSuggested);
+          const isAttachment = Boolean(data.isAttachment);
+          const isReaction = Boolean(data.isReaction);
+          const isEdit = Boolean(data.isEdit);
+          const isGame = Boolean(data.isGame);
+
+          if (msgId && !isAlreadyProcessed) {
+            room.processedMessageIds.add(msgId);
+            // Qualifying message check: non-empty trimmed text, not AI, not attachment, not reaction, not edit, not game
+            if (trimmedText.length > 0 && !isAi && !isAttachment && !isReaction && !isEdit && !isGame) {
+              senderUser.messageCount = (senderUser.messageCount || 0) + 1;
+            }
+          }
+
+          // Evaluate threshold: both users must independently have >= 10 messages
+          const wasUnlocked = room.mediaUnlocked;
+          const nowUnlocked = (room.userA.messageCount >= 10) && (room.userB.messageCount >= 10);
+          room.mediaUnlocked = nowUnlocked;
+
+          // Forward the text message to the partner
           send(partnerSocket, {
             type: 'NEW_MESSAGE',
             id: data.id,
             text: data.text,
             timestamp: Date.now(),
-            isAiSuggested: Boolean(data.isAiSuggested)
+            isAiSuggested: isAi
           });
 
           // Send immediate delivery acknowledgment to sender
           send(ws, {
             type: 'MESSAGE_DELIVERED',
             id: data.id
+          });
+
+          // Authoritative progress broadcast to both participants
+          send(room.userA.socket, {
+            type: 'CONVERSATION_PROGRESS',
+            progress: {
+              myMessageCount: room.userA.messageCount,
+              strangerMessageCount: room.userB.messageCount,
+              thresholdRequired: 10,
+              mediaUnlocked: nowUnlocked,
+              justUnlocked: !wasUnlocked && nowUnlocked
+            }
+          });
+
+          send(room.userB.socket, {
+            type: 'CONVERSATION_PROGRESS',
+            progress: {
+              myMessageCount: room.userB.messageCount,
+              strangerMessageCount: room.userA.messageCount,
+              thresholdRequired: 10,
+              mediaUnlocked: nowUnlocked,
+              justUnlocked: !wasUnlocked && nowUnlocked
+            }
+          });
+          break;
+        }
+
+        case 'GET_PROGRESS': {
+          const roomId = socketToRoom.get(ws);
+          if (!roomId || !activeRooms[roomId]) return;
+
+          const room = activeRooms[roomId];
+          const isUserA = room.userA.socket === ws;
+          const myUser = isUserA ? room.userA : room.userB;
+          const partnerUser = isUserA ? room.userB : room.userA;
+
+          send(ws, {
+            type: 'CONVERSATION_PROGRESS',
+            progress: {
+              myMessageCount: myUser.messageCount || 0,
+              strangerMessageCount: partnerUser.messageCount || 0,
+              thresholdRequired: 10,
+              mediaUnlocked: Boolean(room.mediaUnlocked)
+            }
+          });
+          break;
+        }
+
+        case 'SEND_MEDIA': {
+          const roomId = socketToRoom.get(ws);
+          if (!roomId || !activeRooms[roomId]) return;
+
+          const room = activeRooms[roomId];
+
+          // BACKEND SECURITY CHECK: Media threshold enforcement
+          if (!room.mediaUnlocked) {
+            console.warn(`[SECURITY REJECT] Unauthorized media sharing attempt in room ${roomId}. Threshold not met.`);
+            const isUserA = room.userA.socket === ws;
+            const myUser = isUserA ? room.userA : room.userB;
+            const partnerUser = isUserA ? room.userB : room.userA;
+
+            send(ws, {
+              type: 'MEDIA_REJECTED',
+              error: 'Media sharing is locked. Both participants must independently send at least 10 messages each to unlock media and calls.',
+              progress: {
+                myMessageCount: myUser.messageCount || 0,
+                strangerMessageCount: partnerUser.messageCount || 0,
+                thresholdRequired: 10,
+                mediaUnlocked: false
+              }
+            });
+            return;
+          }
+
+          const partnerSocket = room.userA.socket === ws ? room.userB.socket : room.userA.socket;
+          const mediaMsgId = data.id || `media_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+          send(partnerSocket, {
+            type: 'NEW_MEDIA_MESSAGE',
+            id: mediaMsgId,
+            media: data.media,
+            text: data.text || '',
+            timestamp: Date.now()
+          });
+
+          send(ws, {
+            type: 'MESSAGE_DELIVERED',
+            id: mediaMsgId
+          });
+          break;
+        }
+
+        case 'CALL_SIGNAL': {
+          const roomId = socketToRoom.get(ws);
+          if (!roomId || !activeRooms[roomId]) return;
+
+          const room = activeRooms[roomId];
+
+          // BACKEND SECURITY CHECK: Calling threshold enforcement
+          if (!room.mediaUnlocked) {
+            console.warn(`[SECURITY REJECT] Unauthorized call signal attempt in room ${roomId}. Threshold not met.`);
+            send(ws, {
+              type: 'CALL_REJECTED',
+              error: 'Audio and video calls are locked. Both participants must independently send at least 10 messages each to unlock media and calls.',
+              callType: data.callType
+            });
+            return;
+          }
+
+          const partnerSocket = room.userA.socket === ws ? room.userB.socket : room.userA.socket;
+          send(partnerSocket, {
+            type: 'CALL_SIGNAL',
+            signalType: data.signalType,
+            callType: data.callType,
+            payload: data.payload,
+            senderAlias: data.senderAlias
           });
           break;
         }
@@ -314,3 +467,5 @@ function leaveAnyRoom(ws) {
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 HUSH AI Real-Time WebSocket Server listening on http://0.0.0.0:${PORT}`);
 });
+
+export { wss, activeRooms, waitingQueue, socketToRoom, server };
