@@ -74,8 +74,8 @@ export const MutualRevealModal: React.FC<MutualRevealModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-      <div className="bg-[#0b1120] border border-purple-500/40 rounded-3xl max-w-md w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+      <div className="bg-[#0b1120] border border-purple-500/40 rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative max-h-[92dvh] overflow-y-auto">
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -161,7 +161,7 @@ export const MutualRevealModal: React.FC<MutualRevealModalProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Alex"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-base sm:text-xs text-white focus:outline-none focus:border-purple-500"
                 />
               </div>
 
@@ -172,7 +172,7 @@ export const MutualRevealModal: React.FC<MutualRevealModalProps> = ({
                   value={socialHandle}
                   onChange={(e) => setSocialHandle(e.target.value)}
                   placeholder="e.g. @alex_dev or snap: alex"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-base sm:text-xs text-white focus:outline-none focus:border-purple-500"
                 />
               </div>
 
@@ -183,7 +183,7 @@ export const MutualRevealModal: React.FC<MutualRevealModalProps> = ({
                   value={cityOrCollege}
                   onChange={(e) => setCityOrCollege(e.target.value)}
                   placeholder="e.g. Mumbai / IIT Bombay"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-base sm:text-xs text-white focus:outline-none focus:border-purple-500"
                 />
               </div>
 
@@ -194,7 +194,7 @@ export const MutualRevealModal: React.FC<MutualRevealModalProps> = ({
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="e.g. Web developer, loves anime & gaming"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-base sm:text-xs text-white focus:outline-none focus:border-purple-500"
                 />
               </div>
             </div>
@@ -253,7 +253,7 @@ export const MutualRevealModal: React.FC<MutualRevealModalProps> = ({
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Rohan"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-base sm:text-xs text-white focus:outline-none focus:border-purple-500"
                   />
                 </div>
 
@@ -264,7 +264,7 @@ export const MutualRevealModal: React.FC<MutualRevealModalProps> = ({
                     value={socialHandle}
                     onChange={(e) => setSocialHandle(e.target.value)}
                     placeholder="e.g. @rohan_tech"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-base sm:text-xs text-white focus:outline-none focus:border-purple-500"
                   />
                 </div>
 
@@ -275,7 +275,7 @@ export const MutualRevealModal: React.FC<MutualRevealModalProps> = ({
                     value={cityOrCollege}
                     onChange={(e) => setCityOrCollege(e.target.value)}
                     placeholder="e.g. Delhi University / Bangalore"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-base sm:text-xs text-white focus:outline-none focus:border-purple-500"
                   />
                 </div>
 
@@ -286,7 +286,7 @@ export const MutualRevealModal: React.FC<MutualRevealModalProps> = ({
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
                     placeholder="e.g. Tech enthusiast, building AI tools"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-base sm:text-xs text-white focus:outline-none focus:border-purple-500"
                   />
                 </div>
               </div>
