@@ -30,7 +30,9 @@ import {
   MapPin,
   Calendar,
   Users,
-  Link2
+  Link2,
+  Crown,
+  RotateCcw
 } from 'lucide-react';
 import { 
   ChatMessage, 
@@ -61,6 +63,8 @@ interface ChatScreenProps {
   onOpenAiStarter: () => void;
   pendingAiText?: string | null;
   onClearPendingAiText?: () => void;
+  onOpenVip?: () => void;
+  onRewind?: (code: string) => void;
 }
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({
@@ -72,6 +76,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   onOpenAiStarter,
   pendingAiText,
   onClearPendingAiText,
+  onOpenVip,
+  onRewind,
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -883,6 +889,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   };
 
   const handleLeaveConversation = () => {
+    if (room.reconnectCode) {
+      chatService.setLastSkippedPartner({
+        alias: room.strangerAlias,
+        reconnectCode: room.reconnectCode,
+        city: room.strangerCity,
+        age: room.strangerAge,
+        gender: room.strangerGender
+      });
+    }
     setIsChatEnded(true);
     setEndReason('You left the chat.');
     chatService.leaveChat();
@@ -921,6 +936,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-purple-950/80 text-purple-300 border border-purple-800/40">
                 {room.moodId}
               </span>
+              {room.strangerIsVip && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/50 flex items-center space-x-1 shadow-sm">
+                  <Crown className="w-3 h-3 text-amber-400 fill-current" />
+                  <span>VIP</span>
+                </span>
+              )}
             </div>
             <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
               {room.strangerCity && (
@@ -1068,6 +1089,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           {/* Next Stranger */}
           <button
             onClick={() => {
+              if (room.reconnectCode) {
+                chatService.setLastSkippedPartner({
+                  alias: room.strangerAlias,
+                  reconnectCode: room.reconnectCode,
+                  city: room.strangerCity,
+                  age: room.strangerAge,
+                  gender: room.strangerGender
+                });
+              }
               chatService.leaveChat();
               onNextPerson();
             }}
@@ -1078,7 +1108,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             <span className="hidden sm:inline">Next</span>
           </button>
 
-          {/* End Chat */}
+          {/* End Chat / Rewind if ended */}
           {!isChatEnded ? (
             <button
               onClick={handleLeaveConversation}
@@ -1089,13 +1119,30 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               <span className="hidden sm:inline">Leave</span>
             </button>
           ) : (
-            <button
-              onClick={onNextPerson}
-              className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow transition-colors flex items-center space-x-1"
-            >
-              <span>Find New</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center space-x-1.5">
+              <button
+                onClick={() => {
+                  const last = chatService.getLastSkippedPartner();
+                  if (last && onRewind) {
+                    onRewind(last.reconnectCode);
+                  } else if (onOpenVip) {
+                    onOpenVip();
+                  }
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold shadow transition-colors flex items-center space-x-1"
+                title="Rewind / Reconnect with last person"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Rewind</span>
+              </button>
+              <button
+                onClick={onNextPerson}
+                className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow transition-colors flex items-center space-x-1"
+              >
+                <span>Find New</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
 
           {/* Safety options */}
