@@ -97,6 +97,8 @@ class RealtimeChatService {
 
       this.socket.onopen = () => {
         console.log('[HUSH AI] Connected to real-time WebSocket server at', wsUrl);
+        const sess = this.getUserSession();
+        this.socket?.send(JSON.stringify({ type: 'IDENTIFY_USER', userId: sess.userId }));
       };
 
       this.socket.onmessage = (event) => {
@@ -264,6 +266,15 @@ class RealtimeChatService {
           senderAlias: data.senderAlias,
           reconnectCode: data.reconnectCode
         });
+        break;
+      }
+
+      case 'REFERRAL_COUNT_UPDATED': {
+        const count = Number(data.referralCount) || 0;
+        this.saveReferralCount(count);
+        if (count >= 10 && !this.isVip()) {
+          this.setVip(true, '10-Referral Free VIP');
+        }
         break;
       }
 
@@ -500,6 +511,49 @@ class RealtimeChatService {
   setLastSkippedPartner(partner: { alias: string; reconnectCode: string; city?: string; age?: string | number; gender?: string }): void {
     if (typeof window === 'undefined') return;
     sessionStorage.setItem('hush_last_skipped_partner', JSON.stringify(partner));
+  }
+
+  getReferralCount(): number {
+    if (typeof window === 'undefined') return 0;
+    try {
+      const raw = localStorage.getItem('hush_referral_count');
+      return raw ? parseInt(raw, 10) : 0;
+    } catch {}
+    return 0;
+  }
+
+  saveReferralCount(count: number): number {
+    if (typeof window === 'undefined') return count;
+    localStorage.setItem('hush_referral_count', String(count));
+    const sess = this.getUserSession();
+    sess.referralCount = count;
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(sess));
+    return count;
+  }
+
+  incrementReferralCount(by = 1): number {
+    const current = this.getReferralCount();
+    const updated = current + by;
+    this.saveReferralCount(updated);
+    if (updated >= 10 && !this.isVip()) {
+      this.setVip(true, '10-Referral Free VIP');
+    }
+    return updated;
+  }
+
+  registerReferral(referrerId: string, visitorId: string): void {
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({
+        type: 'REGISTER_REFERRAL',
+        referrerId,
+        visitorId
+      }));
+    }
+    this.broadcastChannel?.postMessage({
+      type: 'TAB_REFERRAL_REGISTERED',
+      referrerId,
+      visitorId
+    });
   }
 
   updatePersona(persona: { city?: string; age?: string | number; gender?: string }): UserSession {
