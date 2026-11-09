@@ -113,6 +113,10 @@ export interface ChatRoom {
   createdAt: number;
   status: 'active' | 'ended' | 'skipped' | 'blocked';
   interests?: string[];
+  strangerCity?: string;
+  strangerAge?: string | number;
+  strangerGender?: string;
+  reconnectCode?: string;
 }
 
 export interface VaultConnection {
@@ -123,6 +127,9 @@ export interface VaultConnection {
   interests?: string[];
   reconnectCode: string;
   savedAt: number;
+  city?: string;
+  age?: string | number;
+  gender?: string;
 }
 
 export interface UserSession {
@@ -134,6 +141,9 @@ export interface UserSession {
   blockedUserIds: string[];
   totalChatsCount: number;
   createdAt: number;
+  city?: string;
+  age?: string | number;
+  gender?: string;
 }
 
 export type ScreenState = 'welcome' | 'mood-select' | 'matching' | 'chat';
