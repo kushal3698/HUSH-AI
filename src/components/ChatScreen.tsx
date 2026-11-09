@@ -142,6 +142,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [saveToast, setSaveToast] = useState<string | null>(null);
   const [showTopMenu, setShowTopMenu] = useState(false);
 
+  // Auto-dismiss saveToast popup within 5-6 seconds
+  useEffect(() => {
+    if (saveToast) {
+      const timer = window.setTimeout(() => {
+        setSaveToast(null);
+      }, 5500);
+      return () => window.clearTimeout(timer);
+    }
+  }, [saveToast]);
+
+  // Auto-dismiss unlockedCelebration popup within 5-6 seconds
+  useEffect(() => {
+    if (unlockedCelebration) {
+      const timer = window.setTimeout(() => {
+        setUnlockedCelebration(false);
+      }, 5500);
+      return () => window.clearTimeout(timer);
+    }
+  }, [unlockedCelebration]);
+
   // Mutual Reveal states
   const [isRevealModalOpen, setIsRevealModalOpen] = useState(false);
   const [pendingIncomingReveal, setPendingIncomingReveal] = useState<RevealRequestPayload | null>(null);
@@ -511,7 +531,30 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     }
   };
 
-  // Calling & Signaling Actions with Robust STUN & Candidate Serialization
+  // Safe Media Stream Acquisition with Automatic Fallback for Mobile Audio
+  const obtainMediaStream = async (type: CallType): Promise<MediaStream> => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('Media devices not supported in this browser');
+    }
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: type === 'video'
+      });
+    } catch (e1) {
+      console.warn('[WebRTC] High quality audio constraints failed, trying basic audio:', e1);
+      return await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: type === 'video'
+      });
+    }
+  };
+
+  // Calling & Signaling Actions with Robust STUN, OpenRelay TURN & Candidate Serialization
   const createPeerConnection = (type: CallType) => {
     try {
       const pc = new RTCPeerConnection({
@@ -521,7 +564,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           { urls: 'stun:stun2.l.google.com:19302' },
           { urls: 'stun:stun3.l.google.com:19302' },
           { urls: 'stun:stun4.l.google.com:19302' },
-          { urls: 'stun:stun.cloudflare.com:3478' }
+          { urls: 'stun:stun.cloudflare.com:3478' },
+          { urls: 'stun:openrelay.metered.ca:80' },
+          {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelay',
+            credential: 'openrelay'
+          },
+          {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelay',
+            credential: 'openrelay'
+          },
+          {
+            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelay',
+            credential: 'openrelay'
+          }
         ],
         iceCandidatePoolSize: 10
       });
@@ -544,6 +603,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       pc.ontrack = (event) => {
         console.log('[WebRTC] Track received:', event.track.kind, event.streams);
+        event.track.enabled = true;
         if (event.streams && event.streams[0]) {
           setRemoteStream(event.streams[0]);
         } else {
@@ -582,96 +642,75 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     setIsCallModalOpen(true);
 
     try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          },
-          video: type === 'video'
-        });
-        // Ensure all audio tracks are active
-        stream.getAudioTracks().forEach((track) => {
-          track.enabled = true;
-        });
-        setLocalStream(stream);
+      const stream = await obtainMediaStream(type);
+      // Ensure all audio tracks are active
+      stream.getAudioTracks().forEach((track) => {
+        track.enabled = true;
+      });
+      setLocalStream(stream);
 
-        const pc = createPeerConnection(type);
-        if (pc) {
-          stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
+      const pc = createPeerConnection(type);
+      if (pc) {
+        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
 
-          chatService.sendCallSignal({
-            signalType: 'offer',
-            callType: type,
-            payload: offer
-          });
-          return;
-        }
+        chatService.sendCallSignal({
+          signalType: 'offer',
+          callType: type,
+          payload: offer
+        });
+        return;
       }
     } catch (err) {
-      console.warn('[WebRTC] Real camera/mic unavailable or prompt cancelled:', err);
+      console.warn('[WebRTC] Microphone or Camera unavailable:', err);
+      setIsCallModalOpen(false);
+      setCallState('idle');
+      setSaveToast('⚠️ Microphone permission required for voice calls. Please allow microphone access in browser settings.');
     }
-
-    // Graceful simulated call signaling for testing/environments without physical webcam
-    chatService.sendCallSignal({
-      signalType: 'offer',
-      callType: type,
-      payload: { simulated: true }
-    });
   };
 
   const handleAcceptCall = async () => {
-    setCallState('connected');
     setIsMuted(false);
     setIsVideoOff(false);
 
     try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          },
-          video: callType === 'video'
-        });
-        stream.getAudioTracks().forEach((track) => {
-          track.enabled = true;
-        });
-        setLocalStream(stream);
+      const stream = await obtainMediaStream(callType);
+      stream.getAudioTracks().forEach((track) => {
+        track.enabled = true;
+      });
+      setLocalStream(stream);
 
-        const pc = createPeerConnection(callType);
-        if (pc) {
-          stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+      const pc = createPeerConnection(callType);
+      if (pc) {
+        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
-          if (pendingOfferRef.current && !pendingOfferRef.current.simulated) {
-            await pc.setRemoteDescription(new RTCSessionDescription(pendingOfferRef.current));
-            await flushPendingIceCandidates(pc);
+        if (pendingOfferRef.current && !pendingOfferRef.current.simulated) {
+          await pc.setRemoteDescription(new RTCSessionDescription(pendingOfferRef.current));
+          await flushPendingIceCandidates(pc);
 
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
 
-            chatService.sendCallSignal({
-              signalType: 'answer',
-              callType,
-              payload: answer
-            });
-            return;
-          }
+          chatService.sendCallSignal({
+            signalType: 'answer',
+            callType,
+            payload: answer
+          });
+          setCallState('connected');
+          return;
         }
       }
     } catch (err) {
-      console.warn('[WebRTC] Real camera/mic unavailable on accept:', err);
+      console.warn('[WebRTC] Microphone or Camera unavailable on accept:', err);
+      setIsCallModalOpen(false);
+      setCallState('idle');
+      setSaveToast('⚠️ Microphone permission required to accept calls. Please allow microphone access in browser settings.');
+      chatService.sendCallSignal({
+        signalType: 'reject',
+        callType
+      });
     }
-
-    chatService.sendCallSignal({
-      signalType: 'answer',
-      callType,
-      payload: { simulated: true }
-    });
   };
 
   const handleDeclineCall = () => {
@@ -1833,18 +1872,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         onRespondRequest={handleRespondRevealRequest}
       />
 
-      {/* Global Fallback Remote Audio Output for Active WebRTC Voice Calls */}
+      {/* Global Fallback Remote Audio Output for Active WebRTC Voice Calls (Never use display:none) */}
       {remoteStream && (
         <audio
           ref={(node) => {
             if (node && node.srcObject !== remoteStream) {
               node.srcObject = remoteStream;
+              node.muted = false;
               node.play().catch((err) => console.warn('[ChatScreen] Remote audio autoplay error:', err));
             }
           }}
           autoPlay
           playsInline
-          className="hidden"
+          aria-hidden="true"
+          style={{ position: 'fixed', top: -9999, left: -9999, width: '1px', height: '1px', opacity: 0.001, pointerEvents: 'none' }}
         />
       )}
     </div>
