@@ -12,6 +12,7 @@ import {
   ConversationProgress,
   CallSignalPayload
 } from '../types';
+import { maskSensitiveData } from '../utils/privacyFilter.ts';
 
 const SESSION_KEY = 'hush_ai_user_session';
 const BLOCKED_KEY = 'hush_ai_blocked_strangers';
@@ -183,13 +184,15 @@ class RealtimeChatService {
       }
 
       case 'NEW_MEDIA_MESSAGE': {
+        const privacyResult = maskSensitiveData(data.text || '');
         const msg: ChatMessage = {
           id: data.id || `msg_media_${Date.now()}`,
           sender: 'stranger',
-          text: data.text || '',
+          text: privacyResult.masked,
           timestamp: data.timestamp || Date.now(),
           media: data.media,
-          status: 'delivered'
+          status: 'delivered',
+          hasSensitiveData: privacyResult.hasSensitiveData || Boolean(data.hasSensitiveData)
         };
         this.onMessageListener?.(msg);
         break;
@@ -224,13 +227,15 @@ class RealtimeChatService {
       }
 
       case 'NEW_MESSAGE': {
+        const privacyResult = maskSensitiveData(data.text || '');
         const msg: ChatMessage = {
           id: data.id || `msg_remote_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
           sender: 'stranger',
-          text: data.text,
+          text: privacyResult.masked,
           timestamp: data.timestamp || Date.now(),
           isAiSuggested: data.isAiSuggested,
-          status: 'delivered'
+          status: 'delivered',
+          hasSensitiveData: privacyResult.hasSensitiveData || Boolean(data.hasSensitiveData)
         };
         this.onMessageListener?.(msg);
         break;
@@ -374,13 +379,15 @@ class RealtimeChatService {
       this.currentRoom = room;
       this.onMatchedListener?.(room);
     } else if (data.type === 'TAB_MESSAGE' && this.currentRoom && data.roomId === this.currentRoom.id) {
+      const privacyResult = maskSensitiveData(data.text || '');
       const msg: ChatMessage = {
         id: data.id || `msg_tab_${Date.now()}`,
         sender: 'stranger',
-        text: data.text,
+        text: privacyResult.masked,
         timestamp: Date.now(),
         isAiSuggested: data.isAiSuggested,
-        status: 'delivered'
+        status: 'delivered',
+        hasSensitiveData: privacyResult.hasSensitiveData
       };
       this.onMessageListener?.(msg);
 
@@ -392,13 +399,15 @@ class RealtimeChatService {
         id: msg.id
       });
     } else if (data.type === 'TAB_MEDIA_MESSAGE' && this.currentRoom && data.roomId === this.currentRoom.id) {
+      const privacyResult = maskSensitiveData(data.text || '');
       const msg: ChatMessage = {
         id: data.id || `msg_tab_media_${Date.now()}`,
         sender: 'stranger',
-        text: data.text || '',
+        text: privacyResult.masked,
         timestamp: Date.now(),
         media: data.media,
-        status: 'delivered'
+        status: 'delivered',
+        hasSensitiveData: privacyResult.hasSensitiveData
       };
       this.onMessageListener?.(msg);
       this.broadcastChannel?.postMessage({
