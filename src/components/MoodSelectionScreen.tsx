@@ -144,7 +144,7 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-4.5rem)] px-4 sm:px-6 py-8 sm:py-12 max-w-xl mx-auto space-y-7 perspective-1200">
+    <div className="flex flex-col min-h-[calc(100vh-4.5rem)] min-h-[calc(100dvh-4.5rem)] px-4 sm:px-6 py-6 sm:py-12 max-w-xl mx-auto space-y-6 sm:space-y-7 perspective-1200 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
       {/* Top Header Row - Clean & Spaced */}
       <div className="flex items-center justify-between pb-2">
         <button
@@ -253,7 +253,7 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
             value={city}
             onChange={(e) => setCity(e.target.value)}
             placeholder="e.g. Mumbai, Bengaluru, Delhi..."
-            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-cyan-400"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 text-base sm:text-xs focus:outline-none focus:border-cyan-400"
           />
           <div className="flex flex-wrap gap-1.5 pt-0.5">
             {QUICK_CITIES.map((c) => (
@@ -411,7 +411,7 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
             onChange={(e) => handleTargetCityChange(e.target.value)}
             onClick={() => { if (!isVip) onOpenVip?.(); }}
             placeholder={isVip ? "Filter by city (e.g. Mumbai, Delhi)..." : "🔒 VIP: Filter by specific city..."}
-            className={`w-full px-3 py-2 rounded-xl text-xs bg-slate-950 border ${
+            className={`w-full px-3 py-2 rounded-xl text-base sm:text-xs bg-slate-950 border ${
               isVip ? 'border-slate-700 text-white focus:border-amber-400' : 'border-slate-800 text-slate-500 cursor-pointer'
             }`}
             readOnly={!isVip}
