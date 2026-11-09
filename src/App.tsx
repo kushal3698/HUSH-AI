@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { MoodSelectionScreen } from './components/MoodSelectionScreen';
 import { MatchingScreen } from './components/MatchingScreen';
 import { ChatScreen } from './components/ChatScreen';
 import { AiStarterModal } from './components/AiStarterModal';
+import { ReconnectModal } from './components/ReconnectModal';
 import { ReportModal, BlockModal, SettingsModal } from './components/SafetyModals';
 import { chatService } from './services/chatService';
 import { ScreenState, MoodId, ChatRoom, UserSession, ReportReason } from './types';
@@ -27,6 +28,10 @@ export const App: React.FC = () => {
   const [isAiStarterOpen, setIsAiStarterOpen] = useState(false);
   const [pendingAiText, setPendingAiText] = useState<string | null>(null);
 
+  // Direct Reconnect Modal State
+  const [isReconnectOpen, setIsReconnectOpen] = useState(false);
+  const [initialReconnectCode, setInitialReconnectCode] = useState<string>('');
+
   // Toast / notification banner
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -35,18 +40,34 @@ export const App: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  // Detect ?reconnect=CODE from URL on page load
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('reconnect');
+      if (code) {
+        setInitialReconnectCode(code.trim().toUpperCase());
+        setIsReconnectOpen(true);
+      }
+    }
+  }, []);
+
   // Start Real-Time Matching with human users
-  const startMatching = (mood: MoodId, interests?: string[]) => {
+  const startMatching = (
+    mood: MoodId, 
+    interests?: string[], 
+    persona?: { city?: string; age?: string | number; gender?: string }
+  ) => {
     setSelectedMood(mood);
     setCurrentScreen('matching');
     setQueueStatus(null);
 
+    const updatedSession = persona ? chatService.updatePersona(persona) : chatService.getUserSession();
     if (interests && interests.length > 0) {
-      const sess = chatService.getUserSession();
-      sess.selectedInterests = interests;
-      localStorage.setItem('hush_ai_user_session', JSON.stringify(sess));
-      setSession(sess);
+      updatedSession.selectedInterests = interests;
+      sessionStorage.setItem('hush_ai_user_session', JSON.stringify(updatedSession));
     }
+    setSession(updatedSession);
 
     chatService.joinQueue(
       mood,
@@ -57,6 +78,39 @@ export const App: React.FC = () => {
       },
       (status) => {
         setQueueStatus(status);
+      },
+      {
+        city: updatedSession.city,
+        age: updatedSession.age,
+        gender: updatedSession.gender
+      }
+    );
+  };
+
+  // Direct Reconnect with a friend using a specific code
+  const handleStartReconnect = (code: string) => {
+    const cleanCode = code.trim().toUpperCase();
+    setIsReconnectOpen(false);
+    setSelectedMood('general');
+    setCurrentScreen('matching');
+    setQueueStatus(null);
+    showToast(`Connecting with Reconnect Code: ${cleanCode}...`);
+
+    chatService.joinQueue(
+      'general',
+      (room) => {
+        setCurrentRoom(room);
+        setCurrentScreen('chat');
+        showToast(`⚡ Reconnected with ${room.strangerAlias}!`);
+      },
+      (status) => {
+        setQueueStatus(status);
+      },
+      {
+        city: session.city,
+        age: session.age,
+        gender: session.gender,
+        reconnectCode: cleanCode
       }
     );
   };
@@ -113,7 +167,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#080c18] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] bg-glow-radial">
+    <div className="min-h-screen bg-[#060913] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] bg-glow-radial cyber-grid-3d relative">
       {/* Toast popup */}
       {toastMessage && (
         <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-indigo-950/90 border border-indigo-500/40 text-xs text-white font-medium shadow-2xl backdrop-blur-md animate-fade-in flex items-center space-x-2">
@@ -129,6 +183,7 @@ export const App: React.FC = () => {
           setSettingsTab('settings');
           setIsSettingsOpen(true);
         }}
+        onOpenReconnect={() => setIsReconnectOpen(true)}
         onGoHome={() => {
           if (currentScreen === 'chat') {
             if (confirm("Leaving will end your anonymous conversation with this person. Continue?")) {
@@ -143,10 +198,11 @@ export const App: React.FC = () => {
       />
 
       {/* Screen Router */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col relative z-10">
         {currentScreen === 'welcome' && (
           <WelcomeScreen
             onStartChatting={() => setCurrentScreen('mood-select')}
+            onOpenReconnect={() => setIsReconnectOpen(true)}
             onOpenPrivacy={() => {
               setSettingsTab('privacy');
               setIsSettingsOpen(true);
@@ -160,8 +216,9 @@ export const App: React.FC = () => {
 
         {currentScreen === 'mood-select' && (
           <MoodSelectionScreen
-            onSelectMoodAndFind={(mood, interests) => startMatching(mood, interests)}
+            onSelectMoodAndFind={(mood, interests, persona) => startMatching(mood, interests, persona)}
             onBack={() => setCurrentScreen('welcome')}
+            onOpenReconnect={() => setIsReconnectOpen(true)}
           />
         )}
 
@@ -187,6 +244,14 @@ export const App: React.FC = () => {
           />
         )}
       </main>
+
+      {/* Direct Reconnect Modal */}
+      <ReconnectModal
+        isOpen={isReconnectOpen}
+        onClose={() => setIsReconnectOpen(false)}
+        onStartReconnect={handleStartReconnect}
+        initialCode={initialReconnectCode}
+      />
 
       {/* AI Icebreaker Drawer / Modal */}
       <AiStarterModal
