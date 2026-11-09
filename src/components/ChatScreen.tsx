@@ -1334,7 +1334,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               <LifeBuoy className="w-4 h-4 text-purple-400 flex-shrink-0 animate-spin" style={{ animationDuration: '8s' }} />
               <div>
                 <span className="text-xs font-bold text-white block">Conversation slowing down?</span>
-                <span className="text-[10px] text-purple-200">Break the ice with a fun micro-game or unexpected question!</span>
+                <span className="text-[10px] text-purple-200">Break the ice with an unexpected conversation starter!</span>
               </div>
             </div>
             <div className="flex items-center space-x-1.5 w-full sm:w-auto justify-end">
