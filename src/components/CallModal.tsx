@@ -78,6 +78,7 @@ export const CallModal: React.FC<CallModalProps> = ({
     if (remoteAudioRef.current) {
       if (remoteStream) {
         remoteAudioRef.current.srcObject = remoteStream;
+        remoteAudioRef.current.muted = false;
         const playPromise = remoteAudioRef.current.play();
         if (playPromise !== undefined) {
           playPromise
@@ -93,10 +94,30 @@ export const CallModal: React.FC<CallModalProps> = ({
     }
   }, [remoteStream, callState]);
 
-  const handleEnableAudio = () => {
-    if (remoteAudioRef.current) {
-      remoteAudioRef.current.play().then(() => setAudioBlocked(false)).catch(console.warn);
+  const unlockAudio = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        const ctx = new AudioContextClass();
+        if (ctx.state === 'suspended') {
+          ctx.resume();
+        }
+      }
+    } catch (e) {
+      console.warn('[CallModal] AudioContext unlock error:', e);
     }
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.muted = false;
+      remoteAudioRef.current
+        .play()
+        .then(() => setAudioBlocked(false))
+        .catch((err) => console.warn('[CallModal] Direct play on unlock failed:', err));
+    }
+  };
+
+  const handleAcceptWithAudio = () => {
+    unlockAudio();
+    onAccept();
   };
 
   if (!isOpen || callState === 'idle') return null;
@@ -220,23 +241,24 @@ export const CallModal: React.FC<CallModalProps> = ({
               {audioBlocked && (
                 <button
                   type="button"
-                  onClick={handleEnableAudio}
+                  onClick={unlockAudio}
                   className="px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center space-x-2 animate-bounce shadow-xl transition-all"
                 >
                   <Volume2 className="w-4 h-4 text-slate-950" />
-                  <span>Tap Here to Hear Voice Audio</span>
+                  <span>🔊 Tap Here to Hear Voice Audio</span>
                 </button>
               )}
             </div>
           )}
         </div>
 
-        {/* Dedicated Remote Audio Element for Crisp Two-Way Sound */}
+        {/* Dedicated Remote Audio Element for Crisp Two-Way Sound (Must NOT use display:none or audio stops on mobile) */}
         <audio
           ref={remoteAudioRef}
           autoPlay
           playsInline
-          className="hidden"
+          aria-hidden="true"
+          style={{ position: 'fixed', top: -9999, left: -9999, width: '1px', height: '1px', opacity: 0.001, pointerEvents: 'none' }}
         />
 
         {/* Action Controls Bar */}
@@ -255,7 +277,7 @@ export const CallModal: React.FC<CallModalProps> = ({
               </button>
 
               <button
-                onClick={onAccept}
+                onClick={handleAcceptWithAudio}
                 className="flex flex-col items-center space-y-1.5 group"
               >
                 <div className="w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30 transition-transform group-hover:scale-105 animate-pulse">
