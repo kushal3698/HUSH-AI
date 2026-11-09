@@ -559,6 +559,65 @@ wss.on('connection', (ws) => {
           break;
         }
 
+        case 'REJOIN_ROOM': {
+          const { roomId, userId } = data;
+          if (!roomId || !activeRooms[roomId]) {
+            send(ws, { type: 'ROOM_EXPIRED' });
+            return;
+          }
+
+          const room = activeRooms[roomId];
+          const isUserA = room.userA && room.userA.userId === userId;
+          const isUserB = room.userB && room.userB.userId === userId;
+
+          if (!isUserA && !isUserB) {
+            send(ws, { type: 'ROOM_EXPIRED' });
+            return;
+          }
+
+          // Cancel any pending disconnect grace timer
+          if (room.disconnectTimer) {
+            clearTimeout(room.disconnectTimer);
+            room.disconnectTimer = null;
+          }
+
+          // Re-bind current socket to room
+          if (isUserA) {
+            room.userA.socket = ws;
+            room.userA.isOnline = true;
+          } else {
+            room.userB.socket = ws;
+            room.userB.isOnline = true;
+          }
+
+          socketToRoom.set(ws, roomId);
+
+          const myCount = isUserA ? room.userA.messageCount : room.userB.messageCount;
+          const strangerCount = isUserA ? room.userB.messageCount : room.userA.messageCount;
+
+          send(ws, {
+            type: 'ROOM_RESTORED',
+            roomId,
+            progress: {
+              myMessageCount: myCount || 0,
+              strangerMessageCount: strangerCount || 0,
+              thresholdRequired: 10,
+              mediaUnlocked: Boolean(room.mediaUnlocked)
+            }
+          });
+
+          // Notify partner that user reconnected and is online
+          const partnerSocket = isUserA ? (room.userB && room.userB.socket) : (room.userA && room.userA.socket);
+          if (partnerSocket) {
+            send(partnerSocket, {
+              type: 'PARTNER_STATUS',
+              status: 'online'
+            });
+          }
+          console.log(`[ROOM REJOINED] User ${userId} restored socket in room ${roomId}.`);
+          break;
+        }
+
         case 'LAUNCH_GAME': {
           const roomId = socketToRoom.get(ws);
           if (!roomId || !activeRooms[roomId]) return;
