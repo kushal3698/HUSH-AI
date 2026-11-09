@@ -47,15 +47,105 @@ function broadcastQueueStatus() {
 function tryMatchUsers() {
   if (waitingQueue.length < 2) return;
 
+  // 0. Priority: Match users who entered the exact same Reconnect Code
+  for (let i = 0; i < waitingQueue.length; i++) {
+    const userA = waitingQueue[i];
+    if (!userA.reconnectCode) continue;
+
+    for (let j = i + 1; j < waitingQueue.length; j++) {
+      const userB = waitingQueue[j];
+      if (userA.socket === userB.socket) continue;
+
+      if (userB.reconnectCode && userA.reconnectCode.trim().toUpperCase() === userB.reconnectCode.trim().toUpperCase()) {
+        waitingQueue.splice(j, 1);
+        waitingQueue.splice(i, 1);
+
+        const roomId = `room_reconnect_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        
+        activeRooms[roomId] = {
+          userA: { 
+            socket: userA.socket, 
+            userId: userA.userId, 
+            alias: userA.alias, 
+            messageCount: 0,
+            city: userA.city,
+            age: userA.age,
+            gender: userA.gender
+          },
+          userB: { 
+            socket: userB.socket, 
+            userId: userB.userId, 
+            alias: userB.alias, 
+            messageCount: 0,
+            city: userB.city,
+            age: userB.age,
+            gender: userB.gender
+          },
+          processedMessageIds: new Set(),
+          mediaUnlocked: false,
+          mood: userA.mood || 'general',
+          createdAt: Date.now(),
+          reconnectCode: userA.reconnectCode
+        };
+
+        socketToRoom.set(userA.socket, roomId);
+        socketToRoom.set(userB.socket, roomId);
+
+        console.log(`[RECONNECT MATCH] Room ${roomId} for code ${userA.reconnectCode}: ${userA.alias} <---> ${userB.alias}`);
+
+        const initialProgress = {
+          myMessageCount: 0,
+          strangerMessageCount: 0,
+          thresholdRequired: 10,
+          mediaUnlocked: false
+        };
+
+        send(userA.socket, {
+          type: 'MATCHED',
+          roomId,
+          strangerId: userB.userId,
+          strangerAlias: userB.alias,
+          mood: userA.mood || 'general',
+          strangerCity: userB.city,
+          strangerAge: userB.age,
+          strangerGender: userB.gender,
+          reconnectCode: userA.reconnectCode,
+          isDirectReconnect: true,
+          progress: initialProgress
+        });
+
+        send(userB.socket, {
+          type: 'MATCHED',
+          roomId,
+          strangerId: userA.userId,
+          strangerAlias: userA.alias,
+          mood: userB.mood || 'general',
+          strangerCity: userA.city,
+          strangerAge: userA.age,
+          strangerGender: userA.gender,
+          reconnectCode: userA.reconnectCode,
+          isDirectReconnect: true,
+          progress: initialProgress
+        });
+
+        broadcastQueueStatus();
+        return tryMatchUsers();
+      }
+    }
+  }
+
   // 1. Try to find pairs with the exact same mood
   for (let i = 0; i < waitingQueue.length; i++) {
     const userA = waitingQueue[i];
 
+    // Don't pair users who are exclusively waiting for a specific reconnect code with random strangers
+    if (userA.reconnectCode) continue;
+
     for (let j = i + 1; j < waitingQueue.length; j++) {
       const userB = waitingQueue[j];
 
-      // Disallow matching identical socket connections
-      if (userA.socket === userB.socket) continue;
+      // Disallow matching identical socket connections or users waiting on reconnect codes
+      if (userA.socket === userB.socket || userB.reconnectCode) continue;
 
       // Match if same mood OR either selected 'general'
       const sameMood = userA.mood === userB.mood;
@@ -68,20 +158,38 @@ function tryMatchUsers() {
         waitingQueue.splice(i, 1);
 
         const roomId = `room_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        const roomReconnectCode = 'HUSH-' + Math.floor(100000 + Math.random() * 900000);
         
         activeRooms[roomId] = {
-          userA: { socket: userA.socket, userId: userA.userId, alias: userA.alias, messageCount: 0 },
-          userB: { socket: userB.socket, userId: userB.userId, alias: userB.alias, messageCount: 0 },
+          userA: { 
+            socket: userA.socket, 
+            userId: userA.userId, 
+            alias: userA.alias, 
+            messageCount: 0,
+            city: userA.city,
+            age: userA.age,
+            gender: userA.gender
+          },
+          userB: { 
+            socket: userB.socket, 
+            userId: userB.userId, 
+            alias: userB.alias, 
+            messageCount: 0,
+            city: userB.city,
+            age: userB.age,
+            gender: userB.gender
+          },
           processedMessageIds: new Set(),
           mediaUnlocked: false,
           mood: userA.mood,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          reconnectCode: roomReconnectCode
         };
 
         socketToRoom.set(userA.socket, roomId);
         socketToRoom.set(userB.socket, roomId);
 
-        console.log(`[MATCH CREATED] Room ${roomId}: ${userA.alias} <---> ${userB.alias} (${userA.mood})`);
+        console.log(`[MATCH CREATED] Room ${roomId} (Code: ${roomReconnectCode}): ${userA.alias} <---> ${userB.alias} (${userA.mood})`);
 
         const initialProgress = {
           myMessageCount: 0,
@@ -96,6 +204,10 @@ function tryMatchUsers() {
           strangerId: userB.userId,
           strangerAlias: userB.alias,
           mood: userA.mood,
+          strangerCity: userB.city,
+          strangerAge: userB.age,
+          strangerGender: userB.gender,
+          reconnectCode: roomReconnectCode,
           progress: initialProgress
         });
 
@@ -105,6 +217,10 @@ function tryMatchUsers() {
           strangerId: userA.userId,
           strangerAlias: userA.alias,
           mood: userB.mood,
+          strangerCity: userA.city,
+          strangerAge: userA.age,
+          strangerGender: userA.gender,
+          reconnectCode: roomReconnectCode,
           progress: initialProgress
         });
 
@@ -133,10 +249,14 @@ wss.on('connection', (ws) => {
             userId: data.userId,
             alias: data.alias,
             mood: data.mood,
+            city: data.city || null,
+            age: data.age || null,
+            gender: data.gender || null,
+            reconnectCode: data.reconnectCode ? String(data.reconnectCode).trim().toUpperCase() : null,
             joinedAt: Date.now()
           });
 
-          console.log(`[QUEUE JOIN] ${data.alias} waiting for "${data.mood}". Total waiting: ${waitingQueue.length}`);
+          console.log(`[QUEUE JOIN] ${data.alias} waiting for "${data.mood}"${data.reconnectCode ? ` (Code: ${data.reconnectCode})` : ''}. Total waiting: ${waitingQueue.length}`);
           broadcastQueueStatus();
           tryMatchUsers();
           break;
