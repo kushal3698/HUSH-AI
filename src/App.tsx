@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { MoodSelectionScreen } from './components/MoodSelectionScreen';
@@ -12,20 +12,15 @@ import { chatService } from './services/chatService';
 import { ScreenState, MoodId, ChatRoom, UserSession, ReportReason } from './types';
 
 export const App: React.FC = () => {
-  // Navigation & Screen state - restored automatically on refresh
-  const [currentRoom, setCurrentRoom] = useState<ChatRoom | null>(() => {
-    return chatService.getActiveRoom();
-  });
-  const [currentScreen, setCurrentScreen] = useState<ScreenState>(() => {
-    return chatService.getActiveRoom() ? 'chat' : 'welcome';
-  });
+  const [currentRoom, setCurrentRoom] = useState<ChatRoom | null>(() => chatService.getActiveRoom());
+  const [currentScreen, setCurrentScreen] = useState<ScreenState>(() =>
+    chatService.getActiveRoom() ? 'chat' : 'welcome'
+  );
   const [selectedMood, setSelectedMood] = useState<MoodId>(() => {
     const active = chatService.getActiveRoom();
     return active ? active.moodId : 'career';
   });
   const [queueStatus, setQueueStatus] = useState<{ position: number; totalWaiting: number } | null>(null);
-
-  // User session
   const [session, setSession] = useState<UserSession>(() => chatService.getUserSession());
 
   // Modals & Drawers
@@ -35,21 +30,30 @@ export const App: React.FC = () => {
   const [isBlockOpen, setIsBlockOpen] = useState(false);
   const [isAiStarterOpen, setIsAiStarterOpen] = useState(false);
   const [pendingAiText, setPendingAiText] = useState<string | null>(null);
-
-  // Direct Reconnect Modal State
   const [isReconnectOpen, setIsReconnectOpen] = useState(false);
   const [initialReconnectCode, setInitialReconnectCode] = useState<string>('');
-
-  // VIP Upgrade Modal State
   const [isVipModalOpen, setIsVipModalOpen] = useState(false);
 
-  // Toast / notification banner
+  // Toast notification with proper timer cleanup
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
+    toastTimeoutRef.current = setTimeout(() => {
+      setToastMessage(null);
+      toastTimeoutRef.current = null;
+    }, 3500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
 
   // Re-sync active room on mount if refreshed
   useEffect(() => {
@@ -59,32 +63,43 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Detect ?reconnect=CODE or ?ref=USER_ID from URL on page load
+  // Detect ?reconnect=CODE or ?ref=USER_ID from URL on page load and clean URL bar
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get('reconnect');
-      if (code) {
-        setInitialReconnectCode(code.trim().toUpperCase());
-        setIsReconnectOpen(true);
-      }
+    if (typeof window === 'undefined') return;
 
-      const ref = params.get('ref');
-      if (ref && ref !== session.userId) {
-        const alreadyReferred = localStorage.getItem('hush_referred_by');
-        if (alreadyReferred !== ref) {
-          localStorage.setItem('hush_referred_by', ref);
-          chatService.registerReferral(ref, session.userId);
-          showToast("Joined via friend's referral link! ✨");
-        }
-      }
+    const params = new URLSearchParams(window.location.search);
+    let urlMutated = false;
+
+    const code = params.get('reconnect');
+    if (code) {
+      setInitialReconnectCode(code.trim().toUpperCase());
+      setIsReconnectOpen(true);
+      params.delete('reconnect');
+      urlMutated = true;
     }
-  }, [session.userId]);
 
-  // Start Real-Time Matching with human users
+    const ref = params.get('ref');
+    if (ref && ref !== session.userId) {
+      const alreadyReferred = localStorage.getItem('hush_referred_by');
+      if (alreadyReferred !== ref) {
+        localStorage.setItem('hush_referred_by', ref);
+        chatService.registerReferral(ref, session.userId);
+        showToast("Joined via friend's referral link! ✨");
+      }
+      params.delete('ref');
+      urlMutated = true;
+    }
+
+    if (urlMutated) {
+      const nextSearch = params.toString();
+      const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`;
+      window.history.replaceState({}, document.title, nextUrl);
+    }
+  }, [session.userId, showToast]);
+
   const startMatching = (
-    mood: MoodId, 
-    interests?: string[], 
+    mood: MoodId,
+    interests?: string[],
     persona?: { city?: string; age?: string | number; gender?: string }
   ) => {
     setSelectedMood(mood);
@@ -117,9 +132,10 @@ export const App: React.FC = () => {
     );
   };
 
-  // Direct Reconnect with a friend using a specific code
   const handleStartReconnect = (code: string) => {
     const cleanCode = code.trim().toUpperCase();
+    if (!cleanCode) return;
+
     setIsReconnectOpen(false);
     setSelectedMood('general');
     setCurrentScreen('matching');
@@ -146,13 +162,11 @@ export const App: React.FC = () => {
     );
   };
 
-  // Cancel Matching
   const handleCancelMatching = () => {
     chatService.cancelQueue();
     setCurrentScreen('mood-select');
   };
 
-  // Skip to next person
   const handleNextPerson = () => {
     chatService.clearActiveRoomStorage();
     chatService.leaveChat();
@@ -160,7 +174,6 @@ export const App: React.FC = () => {
     startMatching(selectedMood);
   };
 
-  // Leave / end chat
   const handleEndChat = () => {
     chatService.clearActiveRoomStorage();
     chatService.leaveChat();
@@ -168,7 +181,6 @@ export const App: React.FC = () => {
     setCurrentScreen('mood-select');
   };
 
-  // Block current user
   const handleConfirmBlock = () => {
     if (currentRoom) {
       chatService.blockUser(currentRoom.strangerId);
@@ -179,37 +191,37 @@ export const App: React.FC = () => {
     }
   };
 
-  // Report current user
   const handleSubmitReport = (reason: ReportReason, details: string) => {
     if (currentRoom) {
       chatService.reportUser(currentRoom.strangerId, reason, details);
       setSession(chatService.getUserSession());
-      showToast("Report submitted. Conversation terminated.");
+      showToast('Report submitted. Conversation terminated.');
       setIsReportOpen(false);
       handleNextPerson();
     }
   };
 
-  // Reset Session
   const handleResetSession = () => {
     const fresh = chatService.resetSession();
     setSession(fresh);
-    showToast("Session reset. Generated fresh anonymous identity.");
+    showToast('Session reset. Generated fresh anonymous identity.');
     setCurrentRoom(null);
     setCurrentScreen('welcome');
   };
 
   return (
     <div className="min-h-screen bg-[#060913] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif] bg-glow-radial cyber-grid-3d relative">
-      {/* Toast popup */}
       {toastMessage && (
-        <div className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-indigo-950/90 border border-indigo-500/40 text-xs text-white font-medium shadow-2xl backdrop-blur-md animate-fade-in flex items-center space-x-2">
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed top-16 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 rounded-2xl bg-indigo-950/90 border border-indigo-500/40 text-xs text-white font-medium shadow-2xl backdrop-blur-md animate-fade-in flex items-center space-x-2"
+        >
           <span>✨</span>
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Main Top Navigation */}
       <Navbar
         currentMood={currentScreen === 'chat' || currentScreen === 'matching' ? selectedMood : null}
         onOpenSettings={() => {
@@ -220,19 +232,21 @@ export const App: React.FC = () => {
         onOpenVip={() => setIsVipModalOpen(true)}
         onGoHome={() => {
           if (currentScreen === 'chat') {
-            if (confirm("Leaving will end your anonymous conversation with this person. Continue?")) {
+            if (window.confirm('Leaving will end your anonymous conversation with this person. Continue?')) {
               chatService.clearActiveRoomStorage();
               chatService.leaveChat();
               setCurrentScreen('welcome');
               setCurrentRoom(null);
             }
+          } else if (currentScreen === 'matching') {
+            chatService.cancelQueue();
+            setCurrentScreen('welcome');
           } else {
             setCurrentScreen('welcome');
           }
         }}
       />
 
-      {/* Screen Router */}
       <main className="flex-1 flex flex-col relative z-10">
         {currentScreen === 'welcome' && (
           <WelcomeScreen
@@ -283,14 +297,12 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* VIP Upgrade Modal */}
       <VipUpgradeModal
         isOpen={isVipModalOpen}
         onClose={() => setIsVipModalOpen(false)}
         onVipChanged={() => setSession(chatService.getUserSession())}
       />
 
-      {/* Direct Reconnect Modal */}
       <ReconnectModal
         isOpen={isReconnectOpen}
         onClose={() => setIsReconnectOpen(false)}
@@ -298,17 +310,13 @@ export const App: React.FC = () => {
         initialCode={initialReconnectCode}
       />
 
-      {/* AI Icebreaker Drawer / Modal */}
       <AiStarterModal
         topic={selectedMood}
         isOpen={isAiStarterOpen}
         onClose={() => setIsAiStarterOpen(false)}
-        onSelectSuggestion={(text) => {
-          setPendingAiText(text);
-        }}
+        onSelectSuggestion={(text) => setPendingAiText(text)}
       />
 
-      {/* Safety: Report Modal */}
       {currentRoom && (
         <ReportModal
           isOpen={isReportOpen}
@@ -318,7 +326,6 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Safety: Block Modal */}
       {currentRoom && (
         <BlockModal
           isOpen={isBlockOpen}
@@ -328,7 +335,6 @@ export const App: React.FC = () => {
         />
       )}
 
-      {/* Settings / Privacy / Guidelines Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
         session={session}
