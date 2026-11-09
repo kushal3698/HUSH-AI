@@ -142,7 +142,8 @@ class RealtimeChatService {
           strangerCity: data.strangerCity,
           strangerAge: data.strangerAge,
           strangerGender: data.strangerGender,
-          reconnectCode: data.reconnectCode
+          reconnectCode: data.reconnectCode,
+          strangerIsVip: Boolean(data.strangerIsVip)
         };
         this.currentRoom = room;
 
@@ -407,6 +408,10 @@ class RealtimeChatService {
       if (pRaw) savedPersona = JSON.parse(pRaw);
     } catch {}
 
+    const isVip = typeof window !== 'undefined' ? localStorage.getItem('hush_vip_active') === 'true' : false;
+    const vipPlan = typeof window !== 'undefined' ? localStorage.getItem('hush_vip_plan') || undefined : undefined;
+    const vipFilters = this.getVipFilters();
+
     const raw = sessionStorage.getItem(SESSION_KEY);
     if (raw) {
       try {
@@ -414,6 +419,9 @@ class RealtimeChatService {
         if (!parsed.city && savedPersona.city) parsed.city = savedPersona.city;
         if (!parsed.age && savedPersona.age) parsed.age = savedPersona.age;
         if (!parsed.gender && savedPersona.gender) parsed.gender = savedPersona.gender;
+        parsed.isVip = isVip;
+        parsed.vipPlan = vipPlan;
+        parsed.vipFilters = vipFilters;
         return parsed;
       } catch {}
     }
@@ -430,11 +438,68 @@ class RealtimeChatService {
       createdAt: Date.now(),
       city: savedPersona.city || '',
       age: savedPersona.age || '',
-      gender: savedPersona.gender || ''
+      gender: savedPersona.gender || '',
+      isVip,
+      vipPlan,
+      vipFilters
     };
 
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
     return newSession;
+  }
+
+  // VIP Management
+  isVip(): boolean {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('hush_vip_active') === 'true';
+  }
+
+  setVip(active: boolean, plan = 'VIP Monthly Pass'): void {
+    if (typeof window === 'undefined') return;
+    if (active) {
+      localStorage.setItem('hush_vip_active', 'true');
+      localStorage.setItem('hush_vip_plan', plan);
+      localStorage.setItem('hush_vip_expires', String(Date.now() + 30 * 24 * 60 * 60 * 1000));
+    } else {
+      localStorage.removeItem('hush_vip_active');
+      localStorage.removeItem('hush_vip_plan');
+      localStorage.removeItem('hush_vip_expires');
+    }
+    const sess = this.getUserSession();
+    sess.isVip = active;
+    sess.vipPlan = active ? plan : undefined;
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(sess));
+  }
+
+  getVipFilters(): { targetGender?: 'female' | 'male' | 'any'; targetCity?: string } {
+    if (typeof window === 'undefined') return { targetGender: 'any', targetCity: '' };
+    try {
+      const raw = localStorage.getItem('hush_vip_filters');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return { targetGender: 'any', targetCity: '' };
+  }
+
+  setVipFilters(filters: { targetGender?: 'female' | 'male' | 'any'; targetCity?: string }): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('hush_vip_filters', JSON.stringify(filters));
+    const sess = this.getUserSession();
+    sess.vipFilters = filters;
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(sess));
+  }
+
+  getLastSkippedPartner(): { alias: string; reconnectCode: string; city?: string; age?: string | number; gender?: string } | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = sessionStorage.getItem('hush_last_skipped_partner');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    return null;
+  }
+
+  setLastSkippedPartner(partner: { alias: string; reconnectCode: string; city?: string; age?: string | number; gender?: string }): void {
+    if (typeof window === 'undefined') return;
+    sessionStorage.setItem('hush_last_skipped_partner', JSON.stringify(partner));
   }
 
   updatePersona(persona: { city?: string; age?: string | number; gender?: string }): UserSession {
@@ -505,6 +570,9 @@ class RealtimeChatService {
       age?: string | number;
       gender?: string;
       reconnectCode?: string;
+      isVip?: boolean;
+      targetGender?: string;
+      targetCity?: string;
     }
   ) {
     this.onMatchedListener = onMatched;
@@ -516,6 +584,11 @@ class RealtimeChatService {
     if (options?.city !== undefined) session.city = options.city;
     if (options?.age !== undefined) session.age = options.age;
     if (options?.gender !== undefined) session.gender = options.gender;
+
+    const isVip = options?.isVip ?? this.isVip();
+    const vipFilters = this.getVipFilters();
+    const targetGender = options?.targetGender ?? (isVip && vipFilters.targetGender !== 'any' ? vipFilters.targetGender : undefined);
+    const targetCity = options?.targetCity ?? (isVip && vipFilters.targetCity ? vipFilters.targetCity : undefined);
 
     try {
       localStorage.setItem('hush_persona', JSON.stringify({
@@ -534,6 +607,9 @@ class RealtimeChatService {
       city: session.city,
       age: session.age,
       gender: session.gender,
+      isVip,
+      targetGender,
+      targetCity,
       reconnectCode: options?.reconnectCode ? options.reconnectCode.trim().toUpperCase() : undefined
     };
 
@@ -549,6 +625,9 @@ class RealtimeChatService {
         city: session.city,
         age: session.age,
         gender: session.gender,
+        isVip,
+        targetGender,
+        targetCity,
         reconnectCode: options?.reconnectCode ? options.reconnectCode.trim().toUpperCase() : undefined
       });
     }
