@@ -20,7 +20,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const isVip = chatService.isVip();
   return (
-    <header className="sticky top-0 z-30 w-full glass-panel border-b border-slate-800/80 px-4 py-3">
+    <header className="sticky top-0 z-30 w-full glass-panel border-b border-slate-800/80 px-3 sm:px-4 py-2 sm:py-3">
       <div className="max-w-4xl mx-auto flex items-center justify-between">
         {/* Brand */}
         <button 
