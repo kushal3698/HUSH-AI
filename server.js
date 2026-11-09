@@ -537,6 +537,28 @@ wss.on('connection', (ws) => {
           break;
         }
 
+        case 'PRESENCE': {
+          const roomId = socketToRoom.get(ws);
+          if (!roomId || !activeRooms[roomId]) return;
+
+          const room = activeRooms[roomId];
+          const isUserA = room.userA && room.userA.socket === ws;
+          if (isUserA) {
+            room.userA.isOnline = data.status !== 'offline';
+          } else if (room.userB && room.userB.socket === ws) {
+            room.userB.isOnline = data.status !== 'offline';
+          }
+
+          const partnerSocket = isUserA ? (room.userB && room.userB.socket) : (room.userA && room.userA.socket);
+          if (partnerSocket) {
+            send(partnerSocket, {
+              type: 'PARTNER_STATUS',
+              status: data.status === 'offline' ? 'offline' : 'online'
+            });
+          }
+          break;
+        }
+
         case 'LAUNCH_GAME': {
           const roomId = socketToRoom.get(ws);
           if (!roomId || !activeRooms[roomId]) return;
@@ -634,10 +656,64 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     console.log('[CLIENT DISCONNECTED]');
     waitingQueue = waitingQueue.filter(entry => entry.socket !== ws);
-    leaveAnyRoom(ws);
+    handleSocketClose(ws);
     broadcastQueueStatus();
   });
 });
+
+function handleSocketClose(ws) {
+  const roomId = socketToRoom.get(ws);
+  if (!roomId || !activeRooms[roomId]) return;
+
+  const room = activeRooms[roomId];
+  const isUserA = room.userA && room.userA.socket === ws;
+  const isUserB = room.userB && room.userB.socket === ws;
+
+  if (isUserA) {
+    room.userA.isOnline = false;
+    room.userA.socket = null;
+  } else if (isUserB) {
+    room.userB.isOnline = false;
+    room.userB.socket = null;
+  }
+
+  socketToRoom.delete(ws);
+
+  // If BOTH users are gone, immediately clean up the room
+  if ((!room.userA || !room.userA.socket) && (!room.userB || !room.userB.socket)) {
+    if (room.disconnectTimer) clearTimeout(room.disconnectTimer);
+    delete activeRooms[roomId];
+    console.log(`[ROOM CLOSED] ${roomId} ended (both participants left).`);
+    return;
+  }
+
+  // Notify the remaining partner that stranger is offline (Away)
+  const partnerSocket = isUserA ? (room.userB && room.userB.socket) : (room.userA && room.userA.socket);
+  if (partnerSocket) {
+    send(partnerSocket, {
+      type: 'PARTNER_STATUS',
+      status: 'offline'
+    });
+  }
+
+  // Grace timer before declaring partner left (60 seconds)
+  if (!room.disconnectTimer) {
+    room.disconnectTimer = setTimeout(() => {
+      const currentRoom = activeRooms[roomId];
+      if (currentRoom) {
+        const remainingPartner = (currentRoom.userA && currentRoom.userA.socket) || (currentRoom.userB && currentRoom.userB.socket);
+        if (remainingPartner) {
+          send(remainingPartner, {
+            type: 'PARTNER_LEFT'
+          });
+          socketToRoom.delete(remainingPartner);
+        }
+        delete activeRooms[roomId];
+        console.log(`[ROOM CLOSED] ${roomId} grace period expired.`);
+      }
+    }, 60000);
+  }
+}
 
 function leaveAnyRoom(ws) {
   const roomId = socketToRoom.get(ws);
@@ -645,15 +721,19 @@ function leaveAnyRoom(ws) {
 
   const room = activeRooms[roomId];
   if (room) {
-    const partnerSocket = room.userA.socket === ws ? room.userB.socket : room.userA.socket;
-    send(partnerSocket, {
-      type: 'PARTNER_LEFT'
-    });
+    if (room.disconnectTimer) clearTimeout(room.disconnectTimer);
+    const partnerSocket = room.userA && room.userA.socket === ws ? (room.userB && room.userB.socket) : (room.userA && room.userA.socket);
+    if (partnerSocket) {
+      send(partnerSocket, {
+        type: 'PARTNER_LEFT'
+      });
+      socketToRoom.delete(partnerSocket);
+    }
 
-    socketToRoom.delete(room.userA.socket);
-    socketToRoom.delete(room.userB.socket);
+    if (room.userA && room.userA.socket) socketToRoom.delete(room.userA.socket);
+    if (room.userB && room.userB.socket) socketToRoom.delete(room.userB.socket);
     delete activeRooms[roomId];
-    console.log(`[ROOM CLOSED] ${roomId} ended.`);
+    console.log(`[ROOM CLOSED] ${roomId} ended by explicit leave.`);
   }
 }
 
