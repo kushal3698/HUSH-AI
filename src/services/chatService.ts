@@ -101,6 +101,16 @@ class RealtimeChatService {
         console.log('[HUSH AI] Connected to real-time WebSocket server at', wsUrl);
         const sess = this.getUserSession();
         this.socket?.send(JSON.stringify({ type: 'IDENTIFY_USER', userId: sess.userId }));
+
+        // Rejoin active room on refresh
+        const active = this.getActiveRoom();
+        if (active) {
+          this.socket?.send(JSON.stringify({
+            type: 'REJOIN_ROOM',
+            roomId: active.id,
+            userId: sess.userId
+          }));
+        }
       };
 
       this.socket.onmessage = (event) => {
@@ -150,6 +160,7 @@ class RealtimeChatService {
           strangerIsVip: Boolean(data.strangerIsVip)
         };
         this.currentRoom = room;
+        this.saveActiveRoom(room);
 
         const session = this.getUserSession();
         session.totalChatsCount += 1;
@@ -285,9 +296,22 @@ class RealtimeChatService {
         break;
       }
 
-      case 'PARTNER_LEFT': {
+      case 'ROOM_RESTORED': {
+        if (data.progress) {
+          this.onProgressListener?.(data.progress);
+        }
+        break;
+      }
+
+      case 'ROOM_EXPIRED': {
+        this.clearActiveRoomStorage();
         this.onPartnerLeftListener?.();
-        this.currentRoom = null;
+        break;
+      }
+
+      case 'PARTNER_LEFT': {
+        this.clearActiveRoomStorage();
+        this.onPartnerLeftListener?.();
         break;
       }
     }
@@ -958,7 +982,48 @@ class RealtimeChatService {
         });
       }
 
-      this.currentRoom = null;
+      this.clearActiveRoomStorage();
+    }
+  }
+
+  saveActiveRoom(room: ChatRoom) {
+    this.currentRoom = room;
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('hush_active_room', JSON.stringify(room));
+    }
+  }
+
+  getActiveRoom(): ChatRoom | null {
+    if (this.currentRoom) return this.currentRoom;
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('hush_active_room');
+      if (saved) {
+        try {
+          this.currentRoom = JSON.parse(saved);
+          return this.currentRoom;
+        } catch {
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
+  clearActiveRoomStorage() {
+    this.currentRoom = null;
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('hush_active_room');
+    }
+  }
+
+  rejoinRoom(roomId: string) {
+    const sess = this.getUserSession();
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({
+        type: 'REJOIN_ROOM',
+        roomId,
+        userId: sess.userId
+      }));
     }
   }
 
