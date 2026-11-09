@@ -44,7 +44,7 @@ export const App: React.FC = () => {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Detect ?reconnect=CODE from URL on page load
+  // Detect ?reconnect=CODE or ?ref=USER_ID from URL on page load
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -53,8 +53,18 @@ export const App: React.FC = () => {
         setInitialReconnectCode(code.trim().toUpperCase());
         setIsReconnectOpen(true);
       }
+
+      const ref = params.get('ref');
+      if (ref && ref !== session.userId) {
+        const alreadyReferred = localStorage.getItem('hush_referred_by');
+        if (alreadyReferred !== ref) {
+          localStorage.setItem('hush_referred_by', ref);
+          chatService.registerReferral(ref, session.userId);
+          showToast("Joined via friend's referral link! ✨");
+        }
+      }
     }
-  }, []);
+  }, [session.userId]);
 
   // Start Real-Time Matching with human users
   const startMatching = (
