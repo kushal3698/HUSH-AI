@@ -25,7 +25,12 @@ import {
   Mic, 
   Paperclip, 
   StopCircle, 
-  PartyPopper 
+  PartyPopper,
+  Copy,
+  MapPin,
+  Calendar,
+  Users,
+  Link2
 } from 'lucide-react';
 import { 
   ChatMessage, 
@@ -782,14 +787,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   // Save Connection (Vault)
   const handleSaveConnection = () => {
-    const reconnectCode = `HUSH-${Math.floor(1000 + Math.random() * 9000)}`;
+    const reconnectCode = room.reconnectCode || `HUSH-${Math.floor(100000 + Math.random() * 900000)}`;
     const conn: VaultConnection = {
       id: `conn_${Date.now()}`,
       strangerAlias: room.strangerAlias,
       strangerId: room.strangerId,
       moodId: room.moodId,
       reconnectCode,
-      savedAt: Date.now()
+      savedAt: Date.now(),
+      city: room.strangerCity,
+      age: room.strangerAge,
+      gender: room.strangerGender
     };
 
     chatService.addVaultConnection(conn);
@@ -914,23 +922,60 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 {room.moodId}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400">
-              {isChatEnded ? (
-                <span className="text-rose-400">{endReason}</span>
-              ) : isStrangerTyping ? (
-                <span className="text-purple-300 animate-pulse font-medium">Stranger is typing...</span>
-              ) : (
-                <span className="text-emerald-400 flex items-center space-x-1">
-                  <UserCheck className="w-3 h-3 inline" />
-                  <span>Real person connected</span>
+            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+              {room.strangerCity && (
+                <span className="inline-flex items-center space-x-0.5 text-[10px] font-semibold px-2 py-0.2 rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-800/40">
+                  <MapPin className="w-2.5 h-2.5 inline" />
+                  <span>{room.strangerCity}</span>
                 </span>
               )}
-            </p>
+              {room.strangerAge && (
+                <span className="inline-flex items-center space-x-0.5 text-[10px] font-semibold px-2 py-0.2 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-800/40">
+                  <Calendar className="w-2.5 h-2.5 inline" />
+                  <span>{room.strangerAge} yrs</span>
+                </span>
+              )}
+              {room.strangerGender && (
+                <span className="inline-flex items-center space-x-0.5 text-[10px] font-semibold px-2 py-0.2 rounded-full bg-pink-950/80 text-pink-300 border border-pink-800/40">
+                  <Users className="w-2.5 h-2.5 inline" />
+                  <span>{room.strangerGender}</span>
+                </span>
+              )}
+              <span className="text-[11px] text-slate-400">
+                {isChatEnded ? (
+                  <span className="text-rose-400">{endReason}</span>
+                ) : isStrangerTyping ? (
+                  <span className="text-purple-300 animate-pulse font-medium">Stranger is typing...</span>
+                ) : (
+                  <span className="text-emerald-400 flex items-center space-x-1">
+                    <UserCheck className="w-3 h-3 inline" />
+                    <span>Connected</span>
+                  </span>
+                )}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Action Controls */}
         <div className="flex items-center space-x-1 sm:space-x-2">
+          {/* Reconnect Code Button */}
+          {room.reconnectCode && !isChatEnded && (
+            <button
+              onClick={() => {
+                const origin = typeof window !== 'undefined' ? window.location.origin : 'https://hush-live-chat.vercel.app';
+                const link = `${origin}?reconnect=${room.reconnectCode}`;
+                navigator.clipboard.writeText(`Connect with me on HUSH AI: ${link} (Code: ${room.reconnectCode})`);
+                setSaveToast(`Copied! Reconnect code: ${room.reconnectCode}`);
+                setTimeout(() => setSaveToast(null), 3500);
+              }}
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-purple-500/40 bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 text-xs font-mono font-bold flex items-center space-x-1 transition-all"
+              title="Copy Reconnect Code to chat again later"
+            >
+              <Link2 className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden sm:inline">{room.reconnectCode}</span>
+            </button>
+          )}
           {/* Mutual Reveal Protocol */}
           {!isChatEnded && (
             <button
@@ -1196,6 +1241,65 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             </div>
           </div>
         )}
+
+        {/* 3D Partner Profile & Reconnect Card */}
+        <div className="my-2 p-4 rounded-3xl bg-gradient-to-br from-indigo-950/70 via-slate-900/90 to-purple-950/70 border border-purple-500/30 shadow-lg shadow-purple-950/30 space-y-3 card-3d">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-950/50">
+                {room.strangerAlias.substring(0, 1)}
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <span className="font-bold text-white text-sm">
+                    {room.strangerAlias}
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800 font-semibold uppercase">
+                    {room.moodId}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 mt-1 text-xs">
+                  <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-800/50 font-medium">
+                    <MapPin className="w-3 h-3 text-cyan-400" />
+                    <span>{room.strangerCity || 'City Undisclosed'}</span>
+                  </span>
+                  <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-800/50 font-medium">
+                    <Calendar className="w-3 h-3 text-indigo-400" />
+                    <span>{room.strangerAge ? `${room.strangerAge} yrs` : '18+'}</span>
+                  </span>
+                  <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-pink-950/80 text-pink-300 border border-pink-800/50 font-medium">
+                    <Users className="w-3 h-3 text-pink-400" />
+                    <span>{room.strangerGender || 'Anonymous'}</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Room Reconnect Code */}
+            {room.reconnectCode && (
+              <div className="flex items-center space-x-2 self-start sm:self-auto bg-slate-900/90 border border-purple-500/40 px-3 py-1.5 rounded-2xl">
+                <div className="text-left">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold block">Reconnect Code</span>
+                  <span className="text-xs font-mono font-bold text-purple-300">{room.reconnectCode}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://hush-live-chat.vercel.app';
+                    const link = `${origin}?reconnect=${room.reconnectCode}`;
+                    navigator.clipboard.writeText(`Connect with me on HUSH AI: ${link} (Code: ${room.reconnectCode})`);
+                    setSaveToast(`Copied! Share this code to chat again later: ${room.reconnectCode}`);
+                    setTimeout(() => setSaveToast(null), 3500);
+                  }}
+                  className="p-1.5 rounded-xl bg-purple-600/80 hover:bg-purple-600 text-white text-[11px] transition-colors"
+                  title="Copy reconnect link & code"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
         {messages.map((msg) => {
           if (msg.sender === 'system') {
