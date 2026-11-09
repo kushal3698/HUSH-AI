@@ -27,8 +27,6 @@ import {
   PartyPopper,
   Copy,
   MapPin,
-  Calendar,
-  Users,
   Link2,
   Crown,
   RotateCcw,
@@ -1119,10 +1117,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto w-full bg-[#060913] sm:border-x sm:border-slate-800/80 relative">
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] h-[calc(100dvh-3.5rem)] sm:h-[calc(100vh-4rem)] sm:h-[calc(100dvh-4rem)] max-w-4xl mx-auto w-full bg-[#060913] sm:border-x sm:border-slate-800/80 relative overflow-hidden">
       {/* Toast Banner for Vault Save & Threshold - Auto-dismisses within 5-6s */}
       {saveToast && (
-        <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-indigo-950/95 border border-indigo-400 text-xs text-white shadow-2xl backdrop-blur-md flex items-center space-x-2.5 animate-fade-in max-w-md w-[92%] sm:w-auto">
+        <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-indigo-950/95 border border-indigo-400 text-xs text-white shadow-2xl backdrop-blur-md flex items-center space-x-2.5 animate-toast-fade-in max-w-md w-[92%] sm:w-auto">
           <BookmarkCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
           <span className="flex-1 font-medium">{saveToast}</span>
           <button 
@@ -1135,15 +1133,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         </div>
       )}
 
-      {/* Top Participant & Action Bar - Clean, Clear & Uncluttered */}
-      <div className="glass-panel border-b border-slate-800/80 px-4 py-2.5 flex items-center justify-between z-20 relative">
+      {/* Top Participant & Action Bar - Clean, Clear & Mobile-Optimized */}
+      <div className="glass-panel border-b border-slate-800/80 px-2.5 sm:px-4 py-2 sm:py-2.5 flex items-center justify-between z-20 relative">
         {/* Left: Stranger Identity & Persona */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
           <div className="relative flex-shrink-0">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-700 via-indigo-700 to-cyan-500 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-purple-900/30">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-purple-700 via-indigo-700 to-cyan-500 flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-md shadow-purple-900/30">
               {room.strangerAlias.substring(0, 1)}
             </div>
-            <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#080c18] transition-colors ${
+            <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-[#080c18] transition-colors ${
               isChatEnded 
                 ? 'bg-rose-500' 
                 : strangerPresence === 'online' 
@@ -1152,59 +1150,51 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             }`}></span>
           </div>
 
-          <div className="text-left">
-            <div className="flex items-center space-x-2">
-              <h2 className="font-bold text-white text-sm tracking-wide">
+          <div className="text-left min-w-0 flex-1">
+            <div className="flex items-center space-x-1.5 sm:space-x-2">
+              <h2 className="font-bold text-white text-xs sm:text-sm tracking-wide truncate">
                 {room.strangerAlias}
               </h2>
-              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800/50">
+              <span className="text-[9px] sm:text-[10px] font-bold uppercase px-1.5 sm:px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800/50 flex-shrink-0">
                 {room.moodId}
               </span>
               {room.strangerIsVip && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/50 flex items-center space-x-1 shadow-sm">
-                  <Crown className="w-3 h-3 text-amber-400 fill-current" />
+                <span className="text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/50 flex items-center space-x-0.5 shadow-sm flex-shrink-0">
+                  <Crown className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-400 fill-current" />
                   <span>VIP</span>
                 </span>
               )}
             </div>
 
             {/* Persona Badges: City • Age • Gender */}
-            <div className="flex items-center space-x-1.5 text-xs text-slate-300 mt-0.5 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center space-x-1 text-[11px] sm:text-xs text-slate-300 mt-0.5 overflow-hidden">
               {room.strangerCity && (
-                <span className="text-cyan-300 font-medium inline-flex items-center space-x-0.5 whitespace-nowrap">
-                  <MapPin className="w-3 h-3 text-cyan-400 inline" />
-                  <span>{room.strangerCity}</span>
+                <span className="text-cyan-300 font-medium inline-flex items-center space-x-0.5 whitespace-nowrap truncate max-w-[85px] sm:max-w-none">
+                  <MapPin className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-cyan-400 inline flex-shrink-0" />
+                  <span className="truncate">{room.strangerCity}</span>
                 </span>
               )}
               {room.strangerCity && room.strangerAge && <span className="opacity-60">•</span>}
               {room.strangerAge && (
-                <span className="text-indigo-300 font-medium inline-flex items-center space-x-0.5 whitespace-nowrap">
-                  <Calendar className="w-3 h-3 text-indigo-400 inline" />
-                  <span>{room.strangerAge} yrs</span>
+                <span className="text-indigo-300 font-medium whitespace-nowrap flex-shrink-0">
+                  {room.strangerAge} yrs
                 </span>
               )}
               {(room.strangerCity || room.strangerAge) && room.strangerGender && <span className="opacity-60">•</span>}
               {room.strangerGender && (
-                <span className="text-pink-300 font-medium inline-flex items-center space-x-0.5 whitespace-nowrap">
-                  <Users className="w-3 h-3 text-pink-400 inline" />
-                  <span>{room.strangerGender}</span>
+                <span className="text-pink-300 font-medium whitespace-nowrap flex-shrink-0">
+                  {room.strangerGender}
                 </span>
               )}
-              <span className="text-[11px] text-slate-400 hidden sm:inline">
+              <span className="text-[10px] sm:text-[11px] text-slate-400 hidden xs:inline sm:inline ml-1">
                 {isChatEnded ? (
-                  <span className="text-rose-400 ml-1">Left</span>
+                  <span className="text-rose-400">Left</span>
                 ) : isStrangerTyping ? (
-                  <span className="text-purple-300 animate-pulse ml-1">typing...</span>
+                  <span className="text-purple-300 animate-pulse">typing...</span>
                 ) : strangerPresence === 'online' ? (
-                  <span className="text-emerald-400 ml-1 inline-flex items-center space-x-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>Online</span>
-                  </span>
+                  <span className="text-emerald-400">Online</span>
                 ) : (
-                  <span className="text-slate-400 ml-1 inline-flex items-center space-x-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
-                    <span>Offline (Away)</span>
-                  </span>
+                  <span className="text-slate-400">Away</span>
                 )}
               </span>
             </div>
@@ -1212,8 +1202,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         </div>
 
         {/* Right: Clean, Well-Spaced Action Controls */}
-        <div className="flex items-center space-x-1.5 sm:space-x-2">
-          {/* Reconnect Code Button */}
+        <div className="flex items-center space-x-1 sm:space-x-2 flex-shrink-0 ml-1 sm:ml-2">
+          {/* Reconnect Code Button (Clean Icon-first on Mobile) */}
           {room.reconnectCode && !isChatEnded && (
             <button
               onClick={() => {
@@ -1221,61 +1211,42 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 const link = `${origin}?reconnect=${room.reconnectCode}`;
                 navigator.clipboard.writeText(`Connect with me on HUSH AI: ${link} (Code: ${room.reconnectCode})`);
                 setSaveToast(`Copied Reconnect Code: ${room.reconnectCode}`);
-                setTimeout(() => setSaveToast(null), 5000);
               }}
-              className="px-2.5 py-1.5 rounded-xl border border-purple-500/40 bg-purple-950/70 hover:bg-purple-900 text-purple-200 text-xs font-mono font-bold flex items-center space-x-1.5 transition-all shadow-sm"
+              className="px-2 py-1.5 sm:px-2.5 rounded-xl border border-purple-500/40 bg-purple-950/70 hover:bg-purple-900 text-purple-200 text-[11px] sm:text-xs font-mono font-bold flex items-center space-x-1 sm:space-x-1.5 transition-all shadow-sm active:scale-95"
               title="Copy Reconnect Code"
             >
-              <Link2 className="w-3.5 h-3.5 text-cyan-400" />
-              <span>{room.reconnectCode}</span>
-              <Copy className="w-3 h-3 text-purple-400 opacity-70 hover:opacity-100" />
-            </button>
-          )}
-
-          {/* Rewind if Chat Ended */}
-          {isChatEnded && onRewind && (
-            <button
-              onClick={() => {
-                const last = chatService.getLastSkippedPartner();
-                if (last && onRewind) {
-                  onRewind(last.reconnectCode);
-                } else if (onOpenVip) {
-                  onOpenVip();
-                }
-              }}
-              className="px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center space-x-1 transition-all"
-              title="Rewind / Reconnect with previous partner"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Rewind</span>
+              <Link2 className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+              <span className="hidden sm:inline">{room.reconnectCode}</span>
+              <span className="sm:hidden text-[10px]">Code</span>
+              <Copy className="w-3 h-3 text-purple-400 opacity-70 hover:opacity-100 hidden sm:inline" />
             </button>
           )}
 
           {/* Quick Call Controls */}
           {!isChatEnded && (
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-0.5 sm:space-x-1">
               <button
                 onClick={() => handleStartCall('audio')}
-                className={`p-2 rounded-xl border text-xs transition-colors ${
+                className={`p-1.5 sm:p-2 rounded-xl border text-xs transition-colors active:scale-95 ${
                   progress.mediaUnlocked
                     ? 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border-emerald-500/50'
                     : 'bg-slate-800/80 hover:bg-slate-700 text-slate-400 border-slate-700/60'
                 }`}
                 title={progress.mediaUnlocked ? 'Audio Call' : 'Audio Call Locked (10 msgs each required)'}
               >
-                <Phone className="w-4 h-4" />
+                <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
 
               <button
                 onClick={() => handleStartCall('video')}
-                className={`p-2 rounded-xl border text-xs transition-colors ${
+                className={`p-1.5 sm:p-2 rounded-xl border text-xs transition-colors active:scale-95 ${
                   progress.mediaUnlocked
                     ? 'bg-purple-950/80 hover:bg-purple-900 text-purple-300 border-purple-500/50'
                     : 'bg-slate-800/80 hover:bg-slate-700 text-slate-400 border-slate-700/60'
                 }`}
                 title={progress.mediaUnlocked ? 'Video Call' : 'Video Call Locked (10 msgs each required)'}
               >
-                <VideoIcon className="w-4 h-4" />
+                <VideoIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             </div>
           )}
@@ -1301,7 +1272,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               chatService.leaveChat();
               onNextPerson();
             }}
-            className="px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 hover:text-white border border-indigo-500/40 text-xs font-bold flex items-center space-x-1 transition-all"
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 hover:text-white border border-indigo-500/40 text-xs font-bold flex items-center space-x-1 transition-all active:scale-95"
             title="Next Person"
           >
             <RotateCw className="w-3.5 h-3.5" />
@@ -1312,7 +1283,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           {!isChatEnded ? (
             <button
               onClick={handleLeaveConversation}
-              className="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-rose-950 text-slate-300 hover:text-rose-200 border border-slate-700/60 hover:border-rose-700 text-xs font-semibold flex items-center space-x-1 transition-all"
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-800/80 hover:bg-rose-950 text-slate-300 hover:text-rose-200 border border-slate-700/60 hover:border-rose-700 text-xs font-semibold flex items-center space-x-1 transition-all active:scale-95"
               title="Leave Chat"
             >
               <X className="w-3.5 h-3.5" />
@@ -1329,7 +1300,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 chatService.clearActiveRoomStorage();
                 onNextPerson();
               }}
-              className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow flex items-center space-x-1 transition-all"
+              className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow flex items-center space-x-1 transition-all active:scale-95"
             >
               <span>New</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -1340,7 +1311,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowTopMenu(!showTopMenu)}
-              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors active:scale-95"
               title="More Actions"
             >
               <MoreVertical className="w-4 h-4" />
@@ -1386,6 +1357,32 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   <UserX className="w-4 h-4 text-amber-400" />
                   <span>Block User</span>
                 </button>
+
+                {onOpenVip && (
+                  <button
+                    onClick={onOpenVip}
+                    className="w-full px-3.5 py-2 text-left hover:bg-amber-950/60 text-amber-300 flex items-center space-x-2 border-t border-slate-800/80 pt-2"
+                  >
+                    <Crown className="w-4 h-4 text-amber-400" />
+                    <span>VIP Member Perks</span>
+                  </button>
+                )}
+
+                {(() => {
+                  const lastSkipped = chatService.getLastSkippedPartner();
+                  if (lastSkipped && onRewind) {
+                    return (
+                      <button
+                        onClick={() => onRewind(lastSkipped.reconnectCode)}
+                        className="w-full px-3.5 py-2 text-left hover:bg-indigo-950/60 text-cyan-300 flex items-center space-x-2"
+                      >
+                        <RotateCcw className="w-4 h-4 text-cyan-400" />
+                        <span>Rewind ({lastSkipped.alias})</span>
+                      </button>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             )}
           </div>
@@ -1394,22 +1391,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       {/* Mutual Conversation Threshold Progress Banner - Compact & Clean */}
       {!isChatEnded && (
-        <div className="px-4 py-2 bg-[#090e20] border-b border-slate-800/80">
+        <div className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-[#090e20] border-b border-slate-800/80">
           {!progress.mediaUnlocked ? (
             <div 
               onClick={() => {
                 setAttemptedLockedFeature(null);
                 setIsLockedModalOpen(true);
               }}
-              className="w-full p-2.5 rounded-2xl bg-gradient-to-r from-purple-950/50 via-slate-900 to-indigo-950/50 border border-purple-500/30 hover:border-purple-500/50 cursor-pointer transition-all shadow-sm space-y-1.5"
+              className="w-full p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-gradient-to-r from-purple-950/50 via-slate-900 to-indigo-950/50 border border-purple-500/30 hover:border-purple-500/50 cursor-pointer transition-all shadow-sm space-y-1 sm:space-y-1.5 active:scale-[0.99]"
             >
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-300 flex items-center space-x-1.5">
-                  <Lock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                  <span>Send 10 messages each to unlock media & calls</span>
+              <div className="flex items-center justify-between text-[11px] sm:text-xs">
+                <span className="font-semibold text-slate-300 flex items-center space-x-1.5 truncate">
+                  <Lock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 flex-shrink-0" />
+                  <span className="hidden sm:inline">Send 10 messages each to unlock media & calls</span>
+                  <span className="sm:hidden">10 msgs each unlocks media & calls</span>
                 </span>
-                <span className="text-[11px] font-mono text-purple-300 font-bold">
-                  You: {Math.min(progress.myMessageCount, 10)}/10 • Partner: {Math.min(progress.strangerMessageCount, 10)}/10
+                <span className="text-[10px] sm:text-[11px] font-mono text-purple-300 font-bold whitespace-nowrap ml-2 flex-shrink-0">
+                  <span className="hidden sm:inline">You: </span>{Math.min(progress.myMessageCount, 10)}/10 • <span className="hidden sm:inline">Partner: </span>{Math.min(progress.strangerMessageCount, 10)}/10
                 </span>
               </div>
 
@@ -1426,12 +1424,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               </div>
             </div>
           ) : (
-            <div className="w-full px-3 py-1.5 rounded-xl bg-emerald-950/50 border border-emerald-500/30 flex items-center justify-between text-xs text-emerald-300 animate-fade-in">
-              <span className="flex items-center space-x-1.5">
-                <Unlock className="w-3.5 h-3.5 text-emerald-400" />
+            <div className="w-full px-2.5 sm:px-3 py-1.5 rounded-xl bg-emerald-950/50 border border-emerald-500/30 flex items-center justify-between text-[11px] sm:text-xs text-emerald-300 animate-fade-in">
+              <span className="flex items-center space-x-1.5 truncate">
+                <Unlock className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400 flex-shrink-0" />
                 <span>Media & Calls Unlocked!</span>
               </span>
-              <span className="text-[10px] font-semibold text-emerald-200">10+ Exchanged ✓</span>
+              <span className="text-[10px] font-semibold text-emerald-200 whitespace-nowrap ml-2">10+ Exchanged ✓</span>
             </div>
           )}
         </div>
@@ -1692,9 +1690,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         </div>
       )}
 
-      {/* Input / Composer Area */}
+      {/* Bottom Message Composition Bar with Safe Area Support */}
       {!isChatEnded && (
-        <div className="glass-panel border-t border-slate-800/80 p-3 space-y-2 relative">
+        <div className="p-2 sm:p-4 bg-[#0a0f22]/95 border-t border-slate-800/80 space-y-2 backdrop-blur-md relative z-20 pb-[max(0.6rem,env(safe-area-inset-bottom))]">
           {/* Game Menu Popup if open */}
           {isGameMenuOpen && (
             <div className="absolute bottom-16 left-3 bg-[#0f172a] border border-purple-500/40 rounded-2xl shadow-2xl p-3 z-30 space-y-2 w-64 animate-fade-in">
@@ -1730,21 +1728,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
           {/* Quick AI Icebreaker & Game Launcher Bar */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1.5 sm:space-x-2">
               <button
                 onClick={onOpenAiStarter}
-                className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-purple-950/80 to-indigo-950/80 hover:from-purple-900/80 hover:to-indigo-900/80 border border-purple-500/40 text-purple-300 hover:text-white text-xs font-medium transition-all group shadow-sm"
+                className="inline-flex items-center space-x-1 px-2.5 sm:px-3 py-1 rounded-full bg-gradient-to-r from-purple-950/80 to-indigo-950/80 hover:from-purple-900/80 hover:to-indigo-900/80 border border-purple-500/40 text-purple-300 hover:text-white text-[11px] sm:text-xs font-medium transition-all group shadow-sm active:scale-95"
               >
-                <Sparkles className="w-3.5 h-3.5 text-purple-400 group-hover:scale-110 transition-transform" />
-                <span>✨ AI Wingman</span>
+                <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-purple-400 group-hover:scale-110 transition-transform" />
+                <span>AI Wingman</span>
               </button>
 
               <button
                 onClick={() => setIsGameMenuOpen(!isGameMenuOpen)}
-                className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white text-xs font-medium transition-all"
+                className="inline-flex items-center space-x-1 px-2.5 sm:px-3 py-1 rounded-full bg-slate-900 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white text-[11px] sm:text-xs font-medium transition-all active:scale-95"
               >
-                <Gamepad2 className="w-3.5 h-3.5 text-indigo-400" />
-                <span>🎮 Play Game</span>
+                <Gamepad2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-400" />
+                <span>Play Game</span>
               </button>
             </div>
 
@@ -1759,13 +1757,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               e.preventDefault();
               handleSendMessage();
             }}
-            className="flex items-center space-x-2"
+            className="flex items-center space-x-1.5 sm:space-x-2"
           >
             {/* Attachment Button */}
             <button
               type="button"
               onClick={handleAttachmentClick}
-              className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all flex-shrink-0 ${
+              className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl border flex items-center justify-center transition-all flex-shrink-0 active:scale-95 ${
                 progress.mediaUnlocked
                   ? 'bg-slate-900 hover:bg-purple-950/60 border-slate-700/60 text-purple-300 hover:text-white shadow-sm'
                   : 'bg-slate-900/60 text-slate-500 border-slate-800 hover:text-slate-400'
@@ -1779,7 +1777,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             <button
               type="button"
               onClick={handleVoiceClick}
-              className={`w-11 h-11 rounded-2xl border flex items-center justify-center transition-all flex-shrink-0 ${
+              className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl border flex items-center justify-center transition-all flex-shrink-0 active:scale-95 ${
                 isRecordingAudio
                   ? 'bg-rose-600 text-white border-rose-500 animate-pulse shadow-lg shadow-rose-600/30'
                   : progress.mediaUnlocked
@@ -1797,7 +1795,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               {isRecordingAudio ? <StopCircle className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             </button>
 
-            <div className="relative flex-1">
+            <div className="relative flex-1 min-w-0">
               <input
                 ref={inputRef}
                 type="text"
@@ -1805,18 +1803,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 onChange={handleInputChange}
                 placeholder={
                   isRecordingAudio
-                    ? `Recording voice message (${recordingSeconds}s)... click stop to send`
+                    ? `Recording voice note (${recordingSeconds}s)...`
                     : `Message ${room.strangerAlias}...`
                 }
                 disabled={isRecordingAudio}
-                className="w-full bg-slate-900/90 border border-slate-800 focus:border-purple-500/60 rounded-2xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500/40 transition-all disabled:opacity-60"
+                className="w-full bg-slate-900/90 border border-slate-800 focus:border-purple-500/60 rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 text-base sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500/40 transition-all disabled:opacity-60"
               />
             </div>
 
             <button
               type="submit"
               disabled={!inputText.trim() || isRecordingAudio}
-              className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-lg shadow-purple-600/30 transition-all focus:outline-none flex-shrink-0"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center shadow-lg shadow-purple-600/30 transition-all focus:outline-none flex-shrink-0 active:scale-95"
               aria-label="Send message"
             >
               <Send className="w-4 h-4" />
