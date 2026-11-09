@@ -144,12 +144,12 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-4.5rem)] px-4 sm:px-6 py-8 sm:py-12 max-w-xl mx-auto space-y-7">
+    <div className="flex flex-col min-h-[calc(100vh-4.5rem)] px-4 sm:px-6 py-8 sm:py-12 max-w-xl mx-auto space-y-7 perspective-1200">
       {/* Top Header Row - Clean & Spaced */}
       <div className="flex items-center justify-between pb-2">
         <button
           onClick={onBack}
-          className="flex items-center space-x-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors py-1 px-2 rounded-xl bg-slate-900 border border-slate-800"
+          className="flex items-center space-x-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors py-1.5 px-3 rounded-xl bg-slate-900 border border-slate-800 shadow"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back</span>
@@ -169,14 +169,14 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
       {/* Screen Title - Clean & Punchy */}
       <div className="space-y-1 text-left">
         <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-          Choose Your Vibe
+          Choose Your Vibe ✨
         </h2>
         <p className="text-xs sm:text-sm text-slate-400">
           Select what you want to talk about and set your anonymous persona.
         </p>
       </div>
 
-      {/* 1. MOOD CARDS - Clean, Airy, No Dense Matter */}
+      {/* 1. MOOD CARDS - Clean, Airy, 3D Elevation */}
       <div className="space-y-2.5">
         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block text-left">
           1. Select Conversation Topic:
@@ -188,14 +188,14 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
               <div
                 key={mood.id}
                 onClick={() => setSelectedMood(mood.id)}
-                className={`cursor-pointer rounded-2xl p-4 transition-all duration-200 border flex items-center justify-between ${
+                className={`cursor-pointer rounded-2xl p-4 transition-all duration-200 border flex items-center justify-between card-3d ${
                   isSelected
-                    ? 'bg-gradient-to-r from-purple-950/80 to-indigo-950/80 border-purple-400 shadow-xl shadow-purple-950/40 ring-1 ring-purple-400'
+                    ? 'bg-gradient-to-r from-purple-950/80 to-indigo-950/80 border-purple-400 shadow-xl shadow-purple-950/50 ring-1 ring-purple-400 translate-z-10'
                     : 'bg-slate-900/80 hover:bg-slate-900 border-slate-800 hover:border-slate-700'
                 }`}
               >
-                <div className="flex items-center space-x-3.5 text-left">
-                  <span className="text-2xl p-2 rounded-xl bg-slate-800/80 border border-slate-700/60 shadow-inner">
+                <div className="flex items-center space-x-3.5 text-left preserve-3d">
+                  <span className="text-2xl p-2 rounded-xl bg-slate-800/80 border border-slate-700/60 shadow-inner translate-z-10">
                     {mood.emoji}
                   </span>
                   <div>
@@ -204,7 +204,7 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
                         {mood.label}
                       </h3>
                       {mood.badge && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-purple-300 border border-purple-500/20">
                           {mood.badge}
                         </span>
                       )}
