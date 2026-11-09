@@ -148,6 +148,8 @@ export interface UserSession {
   isVip?: boolean;
   vipExpiresAt?: number;
   vipPlan?: string;
+  referralCount?: number;
+  referralCode?: string;
   vipFilters?: {
     targetGender?: 'female' | 'male' | 'any';
     targetCity?: string;
@@ -160,6 +162,7 @@ export interface VipPlan {
   price: string;
   originalPrice: string;
   duration: string;
+  amountInPaise: number;
   badge?: string;
   popular?: boolean;
 }
