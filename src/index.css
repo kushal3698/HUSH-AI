@@ -283,3 +283,36 @@ body {
   border-color: rgba(139, 92, 246, 0.45);
   box-shadow: 0 12px 32px -10px rgba(139, 92, 246, 0.28);
 }
+
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floating-screen-3d,
+  .floating-option-1,
+  .floating-option-2,
+  .floating-option-3,
+  .floating-option-4,
+  .floating-option,
+  .floating-option-delayed,
+  .floating-option-slow,
+  .ambient-orb-purple,
+  .ambient-orb-cyan,
+  .cyber-grid-3d,
+  .cyber-floor-3d {
+    animation: none !important;
+  }
+}
