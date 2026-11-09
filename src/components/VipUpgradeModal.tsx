@@ -151,19 +151,6 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
     }, 1000);
   };
 
-  const handleSimulateTestReferral = () => {
-    const count = chatService.incrementReferralCount(1);
-    setReferralCount(count);
-    if (count >= 10) {
-      setPaymentSuccess('FREE-REF-UNLOCKED');
-      onVipChanged?.();
-      setTimeout(() => {
-        setPaymentSuccess(null);
-        onClose();
-      }, 2500);
-    }
-  };
-
   const handleToggleDowngrade = () => {
     chatService.setVip(false);
     onVipChanged?.();
@@ -420,15 +407,6 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
               >
                 <Share2 className="w-4 h-4" />
                 <span>WhatsApp</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSimulateTestReferral}
-                className="py-3 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition-colors"
-                title="Simulate +1 Friend"
-              >
-                +1 Test
               </button>
             </div>
           </div>
