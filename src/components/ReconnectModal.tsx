@@ -47,9 +47,9 @@ export const ReconnectModal: React.FC<ReconnectModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in perspective-1000">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in perspective-1000">
       <div 
-        className="w-full max-w-lg rounded-3xl bg-[#0c1224] border border-purple-500/40 shadow-2xl shadow-purple-950/60 overflow-hidden floating-screen-3d"
+        className="w-full max-w-lg max-h-[92dvh] flex flex-col rounded-3xl bg-[#0c1224] border border-purple-500/40 shadow-2xl shadow-purple-950/60 overflow-hidden floating-screen-3d"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -102,7 +102,7 @@ export const ReconnectModal: React.FC<ReconnectModalProps> = ({
         </div>
 
         {/* Tab Body */}
-        <div className="p-6 space-y-5 max-h-[65vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 space-y-5 flex-1 overflow-y-auto">
           {activeTab === 'code' ? (
             <div className="space-y-5">
               {/* Code Entry Form */}
