@@ -66,7 +66,7 @@ export const AiStarterModal: React.FC<AiStarterModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
       <div 
-        className="w-full max-w-lg bg-[#0e152e] border-t sm:border border-purple-500/30 rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 space-y-4 max-h-[85vh] flex flex-col"
+        className="w-full max-w-lg bg-[#0e152e] border-t sm:border border-purple-500/30 rounded-t-3xl sm:rounded-3xl shadow-2xl p-4 sm:p-5 space-y-4 max-h-[85vh] max-h-[85dvh] flex flex-col pb-[max(1rem,env(safe-area-inset-bottom))]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -239,7 +239,7 @@ export const AiStarterModal: React.FC<AiStarterModalProps> = ({
                   value={userQuery}
                   onChange={(e) => setUserQuery(e.target.value)}
                   placeholder="Ask your private AI wingman..."
-                  className="flex-1 bg-slate-900 border border-slate-800 focus:border-purple-500 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none"
+                  className="flex-1 bg-slate-900 border border-slate-800 focus:border-purple-500 rounded-xl px-3.5 py-2.5 text-base sm:text-xs text-white placeholder-slate-500 focus:outline-none"
                 />
                 <button
                   type="submit"
