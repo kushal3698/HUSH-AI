@@ -51,6 +51,7 @@ import { MiniGameCard } from './MiniGameCard';
 import { MutualRevealModal } from './MutualRevealModal';
 import { LockedFeatureModal } from './LockedFeatureModal';
 import { CallModal } from './CallModal';
+import { maskSensitiveData } from '../utils/privacyFilter.ts';
 
 interface ChatScreenProps {
   room: ChatRoom;
@@ -83,7 +84,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((m: ChatMessage) => {
+              if (m.text) {
+                const filtered = maskSensitiveData(m.text);
+                return {
+                  ...m,
+                  text: filtered.masked,
+                  hasSensitiveData: m.hasSensitiveData || filtered.hasSensitiveData
+                };
+              }
+              return m;
+            });
+          }
         } catch {}
       }
     }
@@ -1071,14 +1084,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     const text = (textToSend || inputText).trim();
     if (!text || isChatEnded) return;
 
+    // Privacy Guard: Automatically mask phone numbers, emails, passwords, profanity & sensitive slurs with asterisks (***)
+    const privacyResult = maskSensitiveData(text);
+    const maskedText = privacyResult.masked;
+
+    if (privacyResult.hasSensitiveData) {
+      setSaveToast('🛡️ Privacy Guard: Sensitive information or restricted words were masked with ***');
+    }
+
     const msgId = `msg_${Date.now()}_me`;
     const myMsg: ChatMessage = {
       id: msgId,
       sender: 'me',
-      text,
+      text: maskedText,
       timestamp: Date.now(),
       isAiSuggested: isAi,
-      status: 'sent'
+      status: 'sent',
+      hasSensitiveData: privacyResult.hasSensitiveData
     };
 
     setMessages((prev) => [...prev, myMsg]);
@@ -1086,7 +1108,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     setLastActivity(Date.now());
     setShowRescue(false);
 
-    chatService.sendMessage(msgId, text, isAi);
+    chatService.sendMessage(msgId, maskedText, isAi);
     chatService.sendTyping(false);
   };
 
@@ -1568,6 +1590,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   )}
 
                   {msg.text && <p className="whitespace-pre-wrap break-words">{msg.text}</p>}
+                  {msg.hasSensitiveData && (
+                    <div className="mt-1.5 pt-1 border-t border-white/10 flex items-center space-x-1 text-[10px] text-amber-300 font-semibold">
+                      <ShieldCheck className="w-3 h-3 text-amber-400 flex-shrink-0" />
+                      <span>Privacy Protected (***)</span>
+                    </div>
+                  )}
                   {translations[msg.id] && (
                     <div className="mt-2 pt-1.5 border-t border-slate-700/60 text-xs text-cyan-300 flex items-start space-x-1.5 animate-fade-in">
                       <Globe className="w-3.5 h-3.5 text-cyan-400 mt-0.5 flex-shrink-0" />
