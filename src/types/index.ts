@@ -117,6 +117,7 @@ export interface ChatRoom {
   strangerAge?: string | number;
   strangerGender?: string;
   reconnectCode?: string;
+  strangerIsVip?: boolean;
 }
 
 export interface VaultConnection {
@@ -144,6 +145,23 @@ export interface UserSession {
   city?: string;
   age?: string | number;
   gender?: string;
+  isVip?: boolean;
+  vipExpiresAt?: number;
+  vipPlan?: string;
+  vipFilters?: {
+    targetGender?: 'female' | 'male' | 'any';
+    targetCity?: string;
+  };
+}
+
+export interface VipPlan {
+  id: string;
+  name: string;
+  price: string;
+  originalPrice: string;
+  duration: string;
+  badge?: string;
+  popular?: boolean;
 }
 
 export type ScreenState = 'welcome' | 'mood-select' | 'matching' | 'chat';
