@@ -1,5 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import http from 'http';
+import { maskSensitiveData } from './src/utils/privacyFilter.js';
 
 const PORT = process.env.PORT !== undefined ? Number(process.env.PORT) : 3001;
 
@@ -296,6 +297,8 @@ wss.on('connection', (ws) => {
           const msgId = typeof data.id === 'string' ? data.id.trim() : '';
           const rawText = typeof data.text === 'string' ? data.text.slice(0, 4000) : '';
           const trimmedText = rawText.trim();
+          const privacyFilter = maskSensitiveData(rawText);
+          const sanitizedText = privacyFilter.masked;
 
           const isAlreadyProcessed = msgId ? room.processedMessageIds.has(msgId) : false;
           const isAi = Boolean(data.isAiSuggested);
@@ -318,14 +321,17 @@ wss.on('connection', (ws) => {
           send(partnerSocket, {
             type: 'NEW_MESSAGE',
             id: data.id,
-            text: rawText,
+            text: sanitizedText,
             timestamp: Date.now(),
-            isAiSuggested: isAi
+            isAiSuggested: isAi,
+            hasSensitiveData: privacyFilter.hasSensitiveData
           });
 
           send(ws, {
             type: 'MESSAGE_DELIVERED',
-            id: data.id
+            id: data.id,
+            maskedText: sanitizedText,
+            hasSensitiveData: privacyFilter.hasSensitiveData
           });
 
           send(room.userA.socket, {
@@ -400,17 +406,21 @@ wss.on('connection', (ws) => {
           const partnerSocket = room.userA.socket === ws ? room.userB.socket : room.userA.socket;
           const mediaMsgId = data.id || `media_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
+          const mediaFilter = maskSensitiveData(data.text || '');
           send(partnerSocket, {
             type: 'NEW_MEDIA_MESSAGE',
             id: mediaMsgId,
             media: data.media,
-            text: data.text || '',
-            timestamp: Date.now()
+            text: mediaFilter.masked,
+            timestamp: Date.now(),
+            hasSensitiveData: mediaFilter.hasSensitiveData
           });
 
           send(ws, {
             type: 'MESSAGE_DELIVERED',
-            id: mediaMsgId
+            id: mediaMsgId,
+            maskedText: mediaFilter.masked,
+            hasSensitiveData: mediaFilter.hasSensitiveData
           });
           break;
         }
