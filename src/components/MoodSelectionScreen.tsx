@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Check, Sparkles, MapPin, Calendar, Users, Link2 } from 'lucide-react';
+import { ArrowLeft, Check, Sparkles, MapPin, Calendar, Users, Link2, Crown, Lock } from 'lucide-react';
 import { MoodCategory, MoodId } from '../types';
 import { chatService } from '../services/chatService';
 
@@ -11,6 +11,7 @@ interface MoodSelectionScreenProps {
   ) => void;
   onBack: () => void;
   onOpenReconnect?: () => void;
+  onOpenVip?: () => void;
 }
 
 const MOODS: MoodCategory[] = [
@@ -90,14 +91,21 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
   onSelectMoodAndFind,
   onBack,
   onOpenReconnect,
+  onOpenVip
 }) => {
   const existingSession = chatService.getUserSession();
+  const isVip = chatService.isVip();
+  const initialVipFilters = chatService.getVipFilters();
 
   const [selectedMood, setSelectedMood] = useState<MoodId>('career');
   const [selectedInterests, setSelectedInterests] = useState<string[]>(['tech']);
   const [city, setCity] = useState<string>(existingSession.city || '');
   const [age, setAge] = useState<string>(existingSession.age ? String(existingSession.age) : '20');
   const [gender, setGender] = useState<string>(existingSession.gender || 'Anonymous');
+
+  // VIP Filter states
+  const [targetGender, setTargetGender] = useState<'female' | 'male' | 'any'>(initialVipFilters.targetGender || 'any');
+  const [targetCity, setTargetCity] = useState<string>(initialVipFilters.targetCity || '');
 
   const toggleInterest = (id: string) => {
     if (selectedInterests.includes(id)) {
@@ -109,9 +117,30 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
     }
   };
 
+  const handleGenderFilterChange = (filter: 'female' | 'male' | 'any') => {
+    if (!isVip && filter !== 'any') {
+      onOpenVip?.();
+      return;
+    }
+    setTargetGender(filter);
+    chatService.setVipFilters({ targetGender: filter, targetCity });
+  };
+
+  const handleTargetCityChange = (val: string) => {
+    if (!isVip && val.trim().length > 0) {
+      onOpenVip?.();
+      return;
+    }
+    setTargetCity(val);
+    chatService.setVipFilters({ targetGender, targetCity: val });
+  };
+
   const handleStartMatching = () => {
-    // Persist persona
+    // Persist persona and VIP filters
     chatService.updatePersona({ city, age, gender });
+    if (isVip) {
+      chatService.setVipFilters({ targetGender, targetCity });
+    }
     onSelectMoodAndFind(selectedMood, selectedInterests, { city, age, gender });
   };
 
@@ -153,7 +182,7 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
       </div>
 
       {/* 3D PERSONA CARD (City, Age, Gender) */}
-      <div className="mb-6 p-5 rounded-3xl bg-gradient-to-br from-indigo-950/60 via-slate-900/90 to-purple-950/50 border border-indigo-500/30 shadow-xl shadow-indigo-950/40 space-y-4 card-3d">
+      <div className="mb-5 p-5 rounded-3xl bg-gradient-to-br from-indigo-950/60 via-slate-900/90 to-purple-950/50 border border-indigo-500/30 shadow-xl shadow-indigo-950/40 space-y-4 card-3d">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 text-sm font-bold text-white">
             <span className="text-lg">🌐</span>
@@ -244,6 +273,105 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 👑 VIP MATCH FILTERS SECTION */}
+      <div className={`mb-6 p-4 rounded-3xl border transition-all ${
+        isVip 
+          ? 'bg-gradient-to-r from-amber-950/40 via-purple-950/40 to-slate-900 border-amber-500/50 shadow-lg shadow-amber-950/30'
+          : 'bg-slate-900/60 border-slate-800'
+      }`}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center space-x-2">
+            <Crown className={`w-4 h-4 ${isVip ? 'text-amber-400' : 'text-slate-500'}`} />
+            <span className="text-xs font-bold text-white uppercase tracking-wider">
+              VIP Match Filters (Gender & City)
+            </span>
+          </div>
+          {isVip ? (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              👑 VIP Active
+            </span>
+          ) : (
+            <button
+              onClick={onOpenVip}
+              className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md hover:scale-105 transition-all flex items-center space-x-1"
+            >
+              <Crown className="w-3 h-3 text-slate-950 fill-current" />
+              <span>Unlock VIP</span>
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          {/* Target Gender Filter */}
+          <div className="space-y-1.5">
+            <span className="text-slate-400 text-[11px] block">Match with Gender:</span>
+            <div className="grid grid-cols-3 gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleGenderFilterChange('any')}
+                className={`py-1.5 px-2 rounded-xl font-medium transition-all ${
+                  targetGender === 'any'
+                    ? 'bg-purple-600 text-white font-bold shadow'
+                    : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                👥 Anyone
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleGenderFilterChange('female')}
+                className={`py-1.5 px-2 rounded-xl font-medium flex items-center justify-center space-x-1 transition-all ${
+                  targetGender === 'female'
+                    ? 'bg-gradient-to-r from-pink-600 to-rose-600 text-white font-bold shadow'
+                    : 'bg-slate-800 text-slate-400 hover:text-pink-300'
+                }`}
+              >
+                <span>♀️ Female</span>
+                {!isVip && <Lock className="w-3 h-3 text-amber-400 inline" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleGenderFilterChange('male')}
+                className={`py-1.5 px-2 rounded-xl font-medium flex items-center justify-center space-x-1 transition-all ${
+                  targetGender === 'male'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow'
+                    : 'bg-slate-800 text-slate-400 hover:text-blue-300'
+                }`}
+              >
+                <span>♂️ Male</span>
+                {!isVip && <Lock className="w-3 h-3 text-amber-400 inline" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Target City Filter */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400 text-[11px]">Match within specific City:</span>
+              {!isVip && (
+                <span className="text-[10px] text-amber-400 flex items-center space-x-0.5">
+                  <Lock className="w-2.5 h-2.5 inline" />
+                  <span>VIP</span>
+                </span>
+              )}
+            </div>
+            <input
+              type="text"
+              value={targetCity}
+              onChange={(e) => handleTargetCityChange(e.target.value)}
+              onClick={() => { if (!isVip) onOpenVip?.(); }}
+              placeholder={isVip ? "Filter by city (e.g. Mumbai, Delhi)..." : "🔒 VIP only: filter by city..."}
+              className={`w-full px-3 py-1.5 rounded-xl text-xs bg-slate-900 border ${
+                isVip ? 'border-slate-700 text-white focus:border-amber-400' : 'border-slate-800 text-slate-500 cursor-pointer'
+              }`}
+              readOnly={!isVip}
+            />
           </div>
         </div>
       </div>
