@@ -8,7 +8,6 @@ import {
   RotateCw, 
   Info, 
   ArrowRight, 
-  UserCheck, 
   Globe, 
   Share2, 
   Gamepad2, 
@@ -106,6 +105,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [strangerPresence, setStrangerPresence] = useState<'online' | 'offline'>('online');
 
   // Voice recording
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
@@ -132,6 +132,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const pendingOfferRef = useRef<any>(null);
+  const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const voiceStreamRef = useRef<MediaStream | null>(null);
@@ -191,6 +192,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         }
         return [...prev, newMsg];
       });
+      setStrangerPresence('online');
       setLastActivity(Date.now());
       setShowRescue(false);
       chatService.sendReadReceipt(newMsg.id);
@@ -214,9 +216,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     chatService.onTyping((typing) => {
       setIsStrangerTyping(typing);
       if (typing) {
+        setStrangerPresence('online');
         setLastActivity(Date.now());
         setShowRescue(false);
       }
+    });
+
+    // Real-time Partner Presence (Online / Offline / Away)
+    chatService.onPartnerStatus((status) => {
+      setStrangerPresence(status);
     });
 
     // Real Game Launched by Partner
@@ -361,20 +369,28 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         setIsCallModalOpen(true);
         pendingOfferRef.current = signal.payload;
       } else if (signal.signalType === 'answer') {
-        if (peerConnectionRef.current && signal.payload && !signal.payload.simulated) {
+        const pc = peerConnectionRef.current;
+        if (pc && signal.payload && !signal.payload.simulated) {
           try {
-            await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(signal.payload));
+            await pc.setRemoteDescription(new RTCSessionDescription(signal.payload));
+            await flushPendingIceCandidates(pc);
           } catch (e) {
-            console.warn('Could not set remote description:', e);
+            console.warn('[WebRTC] Could not set remote description from answer:', e);
           }
         }
         setCallState('connected');
       } else if (signal.signalType === 'ice-candidate') {
-        if (peerConnectionRef.current && signal.payload) {
-          try {
-            await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(signal.payload));
-          } catch (e) {
-            console.warn('Could not add ICE candidate:', e);
+        const pc = peerConnectionRef.current;
+        if (signal.payload) {
+          if (pc && pc.remoteDescription) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(signal.payload));
+            } catch (e) {
+              console.warn('[WebRTC] Could not add live ICE candidate:', e);
+            }
+          } else {
+            console.log('[WebRTC] Queuing candidate until remoteDescription is set');
+            pendingIceCandidatesRef.current.push(signal.payload);
           }
         }
       } else if (signal.signalType === 'end' || signal.signalType === 'reject') {
@@ -399,38 +415,101 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         peerConnectionRef.current.close();
         peerConnectionRef.current = null;
       }
+      pendingIceCandidatesRef.current = [];
     };
   }, [room]);
 
-  // Calling & Signaling Actions
+  // Presence sync when user leaves website / switches tab
+  useEffect(() => {
+    const handleVisibility = () => {
+      const status = document.visibilityState === 'visible' ? 'online' : 'offline';
+      chatService.sendPresence(status);
+    };
+
+    const handleFocus = () => chatService.sendPresence('online');
+    const handleBlur = () => chatService.sendPresence('offline');
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+
+    // Announce online
+    chatService.sendPresence('online');
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [room]);
+
+  // Helper to flush queued ICE candidates once remoteDescription is set
+  const flushPendingIceCandidates = async (pc: RTCPeerConnection) => {
+    while (pendingIceCandidatesRef.current.length > 0) {
+      const cand = pendingIceCandidatesRef.current.shift();
+      if (cand) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(cand));
+          console.log('[WebRTC] Flushed queued ICE candidate');
+        } catch (e) {
+          console.warn('[WebRTC] Could not add queued candidate:', e);
+        }
+      }
+    }
+  };
+
+  // Calling & Signaling Actions with Robust STUN & Candidate Serialization
   const createPeerConnection = (type: CallType) => {
     try {
       const pc = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
-        ]
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'stun:stun3.l.google.com:19302' },
+          { urls: 'stun:stun4.l.google.com:19302' },
+          { urls: 'stun:stun.cloudflare.com:3478' }
+        ],
+        iceCandidatePoolSize: 10
       });
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
+          const payload = event.candidate.toJSON ? event.candidate.toJSON() : {
+            candidate: event.candidate.candidate,
+            sdpMid: event.candidate.sdpMid,
+            sdpMLineIndex: event.candidate.sdpMLineIndex,
+            usernameFragment: event.candidate.usernameFragment
+          };
           chatService.sendCallSignal({
             signalType: 'ice-candidate',
             callType: type,
-            payload: event.candidate
+            payload
           });
         }
       };
 
       pc.ontrack = (event) => {
+        console.log('[WebRTC] Track received:', event.track.kind, event.streams);
         if (event.streams && event.streams[0]) {
           setRemoteStream(event.streams[0]);
+        } else {
+          const newStream = new MediaStream([event.track]);
+          setRemoteStream(newStream);
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log('[WebRTC] ICE Connection State:', pc.iceConnectionState);
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          setCallState('connected');
         }
       };
 
       peerConnectionRef.current = pc;
       return pc;
-    } catch {
+    } catch (e) {
+      console.error('[WebRTC] Failed to create RTCPeerConnection:', e);
       return null;
     }
   };
@@ -442,6 +521,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       return;
     }
 
+    pendingIceCandidatesRef.current = [];
+    setIsMuted(false);
+    setIsVideoOff(false);
     setCallType(type);
     setCallState('calling');
     setIsCallModalOpen(true);
@@ -449,8 +531,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
           video: type === 'video'
+        });
+        // Ensure all audio tracks are active
+        stream.getAudioTracks().forEach((track) => {
+          track.enabled = true;
         });
         setLocalStream(stream);
 
@@ -469,7 +559,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         }
       }
     } catch (err) {
-      console.warn('Real camera/mic unavailable or prompt cancelled:', err);
+      console.warn('[WebRTC] Real camera/mic unavailable or prompt cancelled:', err);
     }
 
     // Graceful simulated call signaling for testing/environments without physical webcam
@@ -482,12 +572,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const handleAcceptCall = async () => {
     setCallState('connected');
+    setIsMuted(false);
+    setIsVideoOff(false);
 
     try {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
           video: callType === 'video'
+        });
+        stream.getAudioTracks().forEach((track) => {
+          track.enabled = true;
         });
         setLocalStream(stream);
 
@@ -497,6 +596,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
           if (pendingOfferRef.current && !pendingOfferRef.current.simulated) {
             await pc.setRemoteDescription(new RTCSessionDescription(pendingOfferRef.current));
+            await flushPendingIceCandidates(pc);
+
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
 
@@ -510,7 +611,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         }
       }
     } catch (err) {
-      console.warn('Real camera/mic unavailable on accept:', err);
+      console.warn('[WebRTC] Real camera/mic unavailable on accept:', err);
     }
 
     chatService.sendCallSignal({
@@ -545,7 +646,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
+    pendingIceCandidatesRef.current = [];
+    pendingOfferRef.current = null;
     setRemoteStream(null);
+    setIsMuted(false);
+    setIsVideoOff(false);
     setCallState('ended');
     setTimeout(() => {
       setIsCallModalOpen(false);
@@ -940,7 +1045,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-700 via-indigo-700 to-cyan-500 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-purple-900/30">
               {room.strangerAlias.substring(0, 1)}
             </div>
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#080c18]"></span>
+            <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#080c18] transition-colors ${
+              isChatEnded 
+                ? 'bg-rose-500' 
+                : strangerPresence === 'online' 
+                  ? 'bg-emerald-500 animate-pulse' 
+                  : 'bg-slate-500'
+            }`}></span>
           </div>
 
           <div className="text-left">
@@ -986,10 +1097,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   <span className="text-rose-400 ml-1">Left</span>
                 ) : isStrangerTyping ? (
                   <span className="text-purple-300 animate-pulse ml-1">typing...</span>
+                ) : strangerPresence === 'online' ? (
+                  <span className="text-emerald-400 ml-1 inline-flex items-center space-x-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Online</span>
+                  </span>
                 ) : (
-                  <span className="text-emerald-400 ml-1 inline-flex items-center space-x-0.5">
-                    <UserCheck className="w-3 h-3 text-emerald-400 inline" />
-                    <span>Connected</span>
+                  <span className="text-slate-400 ml-1 inline-flex items-center space-x-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                    <span>Offline (Away)</span>
                   </span>
                 )}
               </span>
@@ -1643,6 +1759,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         onSendRequest={handleSendRevealRequest}
         onRespondRequest={handleRespondRevealRequest}
       />
+
+      {/* Global Fallback Remote Audio Output for Active WebRTC Voice Calls */}
+      {remoteStream && (
+        <audio
+          ref={(node) => {
+            if (node && node.srcObject !== remoteStream) {
+              node.srcObject = remoteStream;
+              node.play().catch((err) => console.warn('[ChatScreen] Remote audio autoplay error:', err));
+            }
+          }}
+          autoPlay
+          playsInline
+          className="hidden"
+        />
+      )}
     </div>
   );
 };
