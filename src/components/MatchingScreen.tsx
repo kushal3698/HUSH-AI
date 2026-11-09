@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Compass, X, Sparkles, ExternalLink, Users, Calendar, Share2, Check, Globe, Gamepad2, ArrowRight } from 'lucide-react';
+import { Compass, X, Sparkles, Users, Calendar, Share2, Check, Globe, Gamepad2, ArrowRight } from 'lucide-react';
 import { MoodId } from '../types';
 import { WOULD_YOU_RATHER_DECK, WouldYouRatherPrompt } from '../services/gameService';
 
@@ -54,10 +54,6 @@ export const MatchingScreen: React.FC<MatchingScreenProps> = ({
     const m = Math.floor(secs / 60);
     const s = secs % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const handleOpenSecondTab = () => {
-    window.open(window.location.origin, '_blank');
   };
 
   const handleNextDilemma = () => {
@@ -215,25 +211,6 @@ export const MatchingScreen: React.FC<MatchingScreenProps> = ({
         >
           {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Share2 className="w-3 h-3" />}
           <span>{copied ? 'Copied' : 'Invite'}</span>
-        </button>
-      </div>
-
-      {/* Quick Test Helper Button (Open 2nd Window) */}
-      <div className="w-full mb-5 p-3 rounded-2xl bg-indigo-950/40 border border-indigo-800/40 text-left space-y-1.5">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-white flex items-center space-x-1.5">
-            <span>Want to self-test right now?</span>
-          </span>
-          <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-900 text-indigo-200">
-            Test
-          </span>
-        </div>
-        <button
-          onClick={handleOpenSecondTab}
-          className="w-full py-2 px-3 rounded-xl bg-indigo-600/60 hover:bg-indigo-600 text-white font-semibold text-xs flex items-center justify-center space-x-1.5 transition-colors shadow"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          <span>Open 2nd Window (Test 2-Person Chat)</span>
         </button>
       </div>
 
