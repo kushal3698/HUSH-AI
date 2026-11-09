@@ -19,8 +19,8 @@ const MOODS: MoodCategory[] = [
     id: 'career',
     label: 'Career & Tech',
     emoji: '🎯',
-    tagline: 'Jobs, placements & ambitions',
-    description: 'Discuss interviewing, learning new stacks, startup ideas, or work life.',
+    tagline: 'Placements, tech & startup ideas',
+    description: '',
     gradient: 'from-blue-600/20 to-indigo-600/20',
     accentColor: 'border-blue-500/50 hover:border-blue-400',
     badge: 'Popular'
@@ -29,8 +29,8 @@ const MOODS: MoodCategory[] = [
     id: 'happy',
     label: 'Happy & Positive',
     emoji: '😊',
-    tagline: 'Good news & wholesome vibes',
-    description: 'Share wins, celebrate good moments, or exchange uplifting encouragement.',
+    tagline: 'Wholesome wins & good vibes',
+    description: '',
     gradient: 'from-amber-500/20 to-orange-500/20',
     accentColor: 'border-amber-500/50 hover:border-amber-400',
     badge: 'Vibes'
@@ -39,8 +39,8 @@ const MOODS: MoodCategory[] = [
     id: 'bored',
     label: 'Bored / Casual',
     emoji: '🎮',
-    tagline: 'Late night chill banter',
-    description: 'Pass the time with fun debates, internet rabbit holes, or quick banter.',
+    tagline: 'Fun debates & late night chill banter',
+    description: '',
     gradient: 'from-purple-600/20 to-pink-600/20',
     accentColor: 'border-purple-500/50 hover:border-purple-400',
     badge: 'Relaxed'
@@ -50,7 +50,7 @@ const MOODS: MoodCategory[] = [
     label: 'Curious & Deep',
     emoji: '🤔',
     tagline: 'Philosophy, science & hot takes',
-    description: 'Explore mind-bending questions, sci-fi, ethics, and unconventional views.',
+    description: '',
     gradient: 'from-emerald-600/20 to-teal-600/20',
     accentColor: 'border-emerald-500/50 hover:border-emerald-400',
     badge: 'Deep Dive'
@@ -60,10 +60,10 @@ const MOODS: MoodCategory[] = [
     label: 'General Chat',
     emoji: '💬',
     tagline: 'Talk about anything',
-    description: 'Open-ended, unstructured conversation. Meet someone new with no fixed agenda.',
+    description: '',
     gradient: 'from-cyan-600/20 to-sky-600/20',
     accentColor: 'border-cyan-500/50 hover:border-cyan-400',
-    badge: 'Any topic'
+    badge: 'Open'
   }
 ];
 
@@ -72,13 +72,13 @@ const VIBE_INTERESTS = [
   { id: 'gaming', label: '🎮 Gaming' },
   { id: 'music', label: '🎵 Music' },
   { id: 'career', label: '📚 College & Jobs' },
-  { id: 'memes', label: '😂 Memes & Banter' },
+  { id: 'memes', label: '😂 Memes' },
   { id: 'advice', label: '❤️ Life Advice' },
   { id: 'movies', label: '🎬 Movies & Anime' },
   { id: 'deep', label: '🧠 Deep Thoughts' },
 ];
 
-const QUICK_CITIES = ['Mumbai', 'Delhi', 'Bengaluru', 'Pune', 'Hyderabad', 'New York', 'London'];
+const QUICK_CITIES = ['Mumbai', 'Delhi', 'Bengaluru', 'Pune', 'Hyderabad'];
 const AGE_OPTIONS = ['18', '19', '20', '21', '22', '23', '24', '25+'];
 const GENDER_OPTIONS = [
   { label: 'Male', emoji: '♂️' },
@@ -136,7 +136,6 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
   };
 
   const handleStartMatching = () => {
-    // Persist persona and VIP filters
     chatService.updatePersona({ city, age, gender });
     if (isVip) {
       chatService.setVipFilters({ targetGender, targetCity });
@@ -145,66 +144,116 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-4rem)] px-4 py-6 max-w-2xl mx-auto perspective-1000">
-      {/* Back button & Step header */}
-      <div className="flex items-center justify-between mb-5">
+    <div className="flex flex-col min-h-[calc(100vh-4.5rem)] px-4 sm:px-6 py-8 sm:py-12 max-w-xl mx-auto space-y-7">
+      {/* Top Header Row - Clean & Spaced */}
+      <div className="flex items-center justify-between pb-2">
         <button
           onClick={onBack}
-          className="flex items-center space-x-1.5 text-sm text-slate-400 hover:text-white transition-colors p-1"
+          className="flex items-center space-x-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors py-1 px-2 rounded-xl bg-slate-900 border border-slate-800"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back</span>
         </button>
 
-        <div className="flex items-center space-x-2">
-          {onOpenReconnect && (
-            <button
-              onClick={onOpenReconnect}
-              className="text-xs font-semibold px-3 py-1 rounded-full bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-500/40 flex items-center space-x-1 transition-all shadow"
-            >
-              <Link2 className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Reconnect Code</span>
-            </button>
-          )}
-          <span className="text-xs font-semibold tracking-wider uppercase px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-            Step 1 of 2
-          </span>
-        </div>
+        {onOpenReconnect && (
+          <button
+            onClick={onOpenReconnect}
+            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-purple-950/70 hover:bg-purple-900 text-purple-200 border border-purple-500/40 flex items-center space-x-1.5 transition-all shadow"
+          >
+            <Link2 className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Reconnect Code</span>
+          </button>
+        )}
       </div>
 
-      <div className="mb-6 space-y-1">
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          Select Your Vibe & Persona
+      {/* Screen Title - Clean & Punchy */}
+      <div className="space-y-1 text-left">
+        <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          Choose Your Vibe
         </h2>
-        <p className="text-sm text-slate-400">
-          Match with real people sharing your mood. Your city, age, and gender help start authentic conversations!
+        <p className="text-xs sm:text-sm text-slate-400">
+          Select what you want to talk about and set your anonymous persona.
         </p>
       </div>
 
-      {/* 3D PERSONA CARD (City, Age, Gender) */}
-      <div className="mb-5 p-5 rounded-3xl bg-gradient-to-br from-indigo-950/60 via-slate-900/90 to-purple-950/50 border border-indigo-500/30 shadow-xl shadow-indigo-950/40 space-y-4 card-3d">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-sm font-bold text-white">
-            <span className="text-lg">🌐</span>
-            <span>Your Anonymous Persona</span>
-            <span className="text-[10px] font-normal text-purple-300 px-2 py-0.5 rounded-full bg-purple-950 border border-purple-800">
-              Shown to your partner in chat
-            </span>
-          </div>
+      {/* 1. MOOD CARDS - Clean, Airy, No Dense Matter */}
+      <div className="space-y-2.5">
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block text-left">
+          1. Select Conversation Topic:
+        </span>
+        <div className="space-y-2.5">
+          {MOODS.map((mood) => {
+            const isSelected = selectedMood === mood.id;
+            return (
+              <div
+                key={mood.id}
+                onClick={() => setSelectedMood(mood.id)}
+                className={`cursor-pointer rounded-2xl p-4 transition-all duration-200 border flex items-center justify-between ${
+                  isSelected
+                    ? 'bg-gradient-to-r from-purple-950/80 to-indigo-950/80 border-purple-400 shadow-xl shadow-purple-950/40 ring-1 ring-purple-400'
+                    : 'bg-slate-900/80 hover:bg-slate-900 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <div className="flex items-center space-x-3.5 text-left">
+                  <span className="text-2xl p-2 rounded-xl bg-slate-800/80 border border-slate-700/60 shadow-inner">
+                    {mood.emoji}
+                  </span>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-bold text-white text-sm">
+                        {mood.label}
+                      </h3>
+                      {mood.badge && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                          {mood.badge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-purple-300 font-medium mt-0.5">
+                      {mood.tagline}
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
+                    isSelected
+                      ? 'bg-purple-500 text-white shadow-md'
+                      : 'border border-slate-700 bg-slate-800/50'
+                  }`}
+                >
+                  {isSelected && <Check className="w-3.5 h-3.5" />}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 2. PERSONA (City, Age, Gender) - Spacious & Clean */}
+      <div className="p-5 sm:p-6 rounded-3xl bg-slate-900/80 border border-slate-800 space-y-4 text-left">
+        <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+          <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+            <span>🌐</span>
+            <span>2. Your Persona (Shown in Chat):</span>
+          </span>
+          <span className="text-[10px] text-purple-300 bg-purple-950/60 px-2 py-0.5 rounded-md border border-purple-800/50">
+            100% Anonymous
+          </span>
         </div>
 
-        {/* City Input & Quick Pills */}
+        {/* City Field */}
         <div className="space-y-2">
-          <label className="flex items-center space-x-1.5 text-xs font-semibold text-slate-300">
+          <label className="text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
             <MapPin className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Your City or Region (e.g., Mumbai, Delhi, London):</span>
+            <span>City or College:</span>
           </label>
           <input
             type="text"
             value={city}
             onChange={(e) => setCity(e.target.value)}
-            placeholder="Type your city, college, or state..."
-            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400"
+            placeholder="e.g. Mumbai, Bengaluru, Delhi..."
+            className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-cyan-400"
           />
           <div className="flex flex-wrap gap-1.5 pt-0.5">
             {QUICK_CITIES.map((c) => (
@@ -212,10 +261,10 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
                 key={c}
                 type="button"
                 onClick={() => setCity(c)}
-                className={`text-[11px] px-2.5 py-1 rounded-lg transition-all ${
+                className={`text-[11px] px-2.5 py-1 rounded-lg transition-colors ${
                   city.toLowerCase() === c.toLowerCase()
                     ? 'bg-cyan-600 text-white font-semibold'
-                    : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                 }`}
               >
                 {c}
@@ -224,11 +273,11 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
           </div>
         </div>
 
-        {/* Age & Gender Row */}
+        {/* Age & Gender Selection */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
           {/* Age Selection */}
           <div className="space-y-1.5">
-            <label className="flex items-center space-x-1.5 text-xs font-semibold text-slate-300">
+            <label className="text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
               <Calendar className="w-3.5 h-3.5 text-indigo-400" />
               <span>Age:</span>
             </label>
@@ -238,10 +287,10 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
                   key={a}
                   type="button"
                   onClick={() => setAge(a)}
-                  className={`py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  className={`py-1.5 rounded-xl text-xs font-semibold transition-all ${
                     age === a
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/40 ring-1 ring-indigo-400'
-                      : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60'
+                      ? 'bg-indigo-600 text-white shadow-md ring-1 ring-indigo-400'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
                   }`}
                 >
                   {a}
@@ -252,7 +301,7 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
 
           {/* Gender Selection */}
           <div className="space-y-1.5">
-            <label className="flex items-center space-x-1.5 text-xs font-semibold text-slate-300">
+            <label className="text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
               <Users className="w-3.5 h-3.5 text-pink-400" />
               <span>Gender:</span>
             </label>
@@ -262,10 +311,10 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
                   key={g.label}
                   type="button"
                   onClick={() => setGender(g.label)}
-                  className={`py-1.5 px-2 rounded-lg text-xs font-medium flex items-center justify-center space-x-1 transition-all ${
+                  className={`py-1.5 px-2 rounded-xl text-xs font-medium flex items-center justify-center space-x-1 transition-all ${
                     gender === g.label
-                      ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md font-semibold ring-1 ring-pink-400'
-                      : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60'
+                      ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white font-bold ring-1 ring-pink-400 shadow-md'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
                   }`}
                 >
                   <span>{g.emoji}</span>
@@ -277,171 +326,108 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
         </div>
       </div>
 
-      {/* 👑 VIP MATCH FILTERS SECTION */}
-      <div className={`mb-6 p-4 rounded-3xl border transition-all ${
+      {/* 3. VIP MATCH FILTERS - Clean, Simple Box */}
+      <div className={`p-4 sm:p-5 rounded-3xl border transition-all text-left space-y-3 ${
         isVip 
-          ? 'bg-gradient-to-r from-amber-950/40 via-purple-950/40 to-slate-900 border-amber-500/50 shadow-lg shadow-amber-950/30'
+          ? 'bg-gradient-to-r from-amber-950/40 to-slate-900 border-amber-500/50'
           : 'bg-slate-900/60 border-slate-800'
       }`}>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Crown className={`w-4 h-4 ${isVip ? 'text-amber-400' : 'text-slate-500'}`} />
+            <Crown className={`w-4 h-4 ${isVip ? 'text-amber-400' : 'text-slate-400'}`} />
             <span className="text-xs font-bold text-white uppercase tracking-wider">
-              VIP Match Filters (Gender & City)
+              VIP Match Filter:
             </span>
           </div>
           {isVip ? (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-              👑 VIP Active
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              👑 Active
             </span>
           ) : (
             <button
               onClick={onOpenVip}
-              className="text-[11px] font-bold px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-md hover:scale-105 transition-all flex items-center space-x-1"
+              className="text-[11px] font-bold px-3 py-1 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 hover:scale-105 transition-all flex items-center space-x-1"
             >
               <Crown className="w-3 h-3 text-slate-950 fill-current" />
-              <span>Unlock VIP</span>
+              <span>Get VIP</span>
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          {/* Target Gender Filter */}
-          <div className="space-y-1.5">
-            <span className="text-slate-400 text-[11px] block">Match with Gender:</span>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={() => handleGenderFilterChange('any')}
-                className={`py-1.5 px-2 rounded-xl font-medium transition-all ${
-                  targetGender === 'any'
-                    ? 'bg-purple-600 text-white font-bold shadow'
-                    : 'bg-slate-800 text-slate-400 hover:text-white'
-                }`}
-              >
-                👥 Anyone
-              </button>
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <button
+            type="button"
+            onClick={() => handleGenderFilterChange('any')}
+            className={`py-2 px-2 rounded-xl font-medium transition-all ${
+              targetGender === 'any'
+                ? 'bg-purple-600 text-white font-bold shadow'
+                : 'bg-slate-800 text-slate-400 hover:text-white'
+            }`}
+          >
+            👥 Anyone
+          </button>
 
-              <button
-                type="button"
-                onClick={() => handleGenderFilterChange('female')}
-                className={`py-1.5 px-2 rounded-xl font-medium flex items-center justify-center space-x-1 transition-all ${
-                  targetGender === 'female'
-                    ? 'bg-gradient-to-r from-pink-600 to-rose-600 text-white font-bold shadow'
-                    : 'bg-slate-800 text-slate-400 hover:text-pink-300'
-                }`}
-              >
-                <span>♀️ Female</span>
-                {!isVip && <Lock className="w-3 h-3 text-amber-400 inline" />}
-              </button>
+          <button
+            type="button"
+            onClick={() => handleGenderFilterChange('female')}
+            className={`py-2 px-2 rounded-xl font-medium flex items-center justify-center space-x-1 transition-all ${
+              targetGender === 'female'
+                ? 'bg-gradient-to-r from-pink-600 to-rose-600 text-white font-bold shadow'
+                : 'bg-slate-800 text-slate-400 hover:text-pink-300'
+            }`}
+          >
+            <span>♀️ Female</span>
+            {!isVip && <Lock className="w-3 h-3 text-amber-400 inline" />}
+          </button>
 
-              <button
-                type="button"
-                onClick={() => handleGenderFilterChange('male')}
-                className={`py-1.5 px-2 rounded-xl font-medium flex items-center justify-center space-x-1 transition-all ${
-                  targetGender === 'male'
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow'
-                    : 'bg-slate-800 text-slate-400 hover:text-blue-300'
-                }`}
-              >
-                <span>♂️ Male</span>
-                {!isVip && <Lock className="w-3 h-3 text-amber-400 inline" />}
-              </button>
-            </div>
+          <button
+            type="button"
+            onClick={() => handleGenderFilterChange('male')}
+            className={`py-2 px-2 rounded-xl font-medium flex items-center justify-center space-x-1 transition-all ${
+              targetGender === 'male'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow'
+                : 'bg-slate-800 text-slate-400 hover:text-blue-300'
+            }`}
+          >
+            <span>♂️ Male</span>
+            {!isVip && <Lock className="w-3 h-3 text-amber-400 inline" />}
+          </button>
+        </div>
+
+        {/* Optional Target City Filter */}
+        <div className="space-y-1 pt-1">
+          <div className="flex items-center justify-between text-[11px] text-slate-400">
+            <span>Filter by Target City:</span>
+            {!isVip && (
+              <span className="text-[10px] text-amber-400 flex items-center space-x-0.5">
+                <Lock className="w-2.5 h-2.5" />
+                <span>VIP</span>
+              </span>
+            )}
           </div>
-
-          {/* Target City Filter */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400 text-[11px]">Match within specific City:</span>
-              {!isVip && (
-                <span className="text-[10px] text-amber-400 flex items-center space-x-0.5">
-                  <Lock className="w-2.5 h-2.5 inline" />
-                  <span>VIP</span>
-                </span>
-              )}
-            </div>
-            <input
-              type="text"
-              value={targetCity}
-              onChange={(e) => handleTargetCityChange(e.target.value)}
-              onClick={() => { if (!isVip) onOpenVip?.(); }}
-              placeholder={isVip ? "Filter by city (e.g. Mumbai, Delhi)..." : "🔒 VIP only: filter by city..."}
-              className={`w-full px-3 py-1.5 rounded-xl text-xs bg-slate-900 border ${
-                isVip ? 'border-slate-700 text-white focus:border-amber-400' : 'border-slate-800 text-slate-500 cursor-pointer'
-              }`}
-              readOnly={!isVip}
-            />
-          </div>
+          <input
+            type="text"
+            value={targetCity}
+            onChange={(e) => handleTargetCityChange(e.target.value)}
+            onClick={() => { if (!isVip) onOpenVip?.(); }}
+            placeholder={isVip ? "Filter by city (e.g. Mumbai, Delhi)..." : "🔒 VIP: Filter by specific city..."}
+            className={`w-full px-3 py-2 rounded-xl text-xs bg-slate-950 border ${
+              isVip ? 'border-slate-700 text-white focus:border-amber-400' : 'border-slate-800 text-slate-500 cursor-pointer'
+            }`}
+            readOnly={!isVip}
+          />
         </div>
       </div>
 
-      {/* Mood Cards List with 3D depth */}
-      <div className="space-y-3 mb-6">
-        <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-          Choose Conversation Mood:
-        </label>
-        {MOODS.map((mood) => {
-          const isSelected = selectedMood === mood.id;
-          return (
-            <div
-              key={mood.id}
-              onClick={() => setSelectedMood(mood.id)}
-              className={`relative cursor-pointer rounded-2xl p-4 transition-all duration-300 border card-3d ${
-                isSelected
-                  ? 'bg-gradient-to-r from-purple-950/70 via-indigo-950/70 to-slate-900 border-purple-500 shadow-xl shadow-purple-900/40 ring-1 ring-purple-500/60'
-                  : 'bg-slate-900/60 hover:bg-slate-900/90 border-slate-800 hover:border-slate-700'
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center space-x-3.5">
-                  <div className="w-12 h-12 rounded-xl bg-slate-800/90 border border-slate-700/60 flex items-center justify-center text-2xl shadow-inner">
-                    {mood.emoji}
-                  </div>
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <h3 className="font-bold text-white text-base">
-                        {mood.label}
-                      </h3>
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700/60">
-                        {mood.badge}
-                      </span>
-                    </div>
-                    <p className="text-xs text-purple-300 font-medium mt-0.5">
-                      {mood.tagline}
-                    </p>
-                    <p className="text-xs text-slate-400 mt-1 leading-relaxed hidden sm:block">
-                      {mood.description}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-1">
-                  <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
-                      isSelected
-                        ? 'bg-purple-600 text-white shadow-md shadow-purple-600/40'
-                        : 'border border-slate-700 bg-slate-800/40'
-                    }`}
-                  >
-                    {isSelected && <Check className="w-3.5 h-3.5" />}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* VibeMatch Sub-Interest Tags */}
-      <div className="mb-8 p-4 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-1.5 text-xs font-bold text-white">
-            <Sparkles className="w-4 h-4 text-cyan-400" />
-            <span>VibeMatch™ Interest Tags (Pick up to 3):</span>
+      {/* 4. INTEREST TAGS - Airy & Clean */}
+      <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 space-y-2.5 text-left">
+        <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+          <div className="flex items-center space-x-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Interests (Pick up to 3):</span>
           </div>
           <span className="text-[10px] text-slate-400 font-mono">
-            {selectedInterests.length}/3 selected
+            {selectedInterests.length}/3
           </span>
         </div>
 
@@ -455,8 +441,8 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
                 onClick={() => toggleInterest(tag.id)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
                   isPicked
-                    ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow-md shadow-cyan-900/30 ring-1 ring-cyan-400'
-                    : 'bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60'
+                    ? 'bg-gradient-to-r from-cyan-600 to-indigo-600 text-white shadow-md ring-1 ring-cyan-400'
+                    : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
                 }`}
               >
                 {tag.label}
@@ -466,14 +452,14 @@ export const MoodSelectionScreen: React.FC<MoodSelectionScreenProps> = ({
         </div>
       </div>
 
-      {/* Launch Action */}
-      <div className="sticky bottom-4 z-20 pt-2 pb-2">
+      {/* 5. BIG CLEAN ACTION BUTTON */}
+      <div className="pt-2 pb-4">
         <button
           onClick={handleStartMatching}
-          className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold text-base shadow-xl shadow-purple-900/40 hover:shadow-purple-900/60 flex items-center justify-center space-x-2 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
+          className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-black text-base shadow-xl shadow-purple-900/40 hover:shadow-purple-900/60 flex items-center justify-center space-x-2 transition-all transform hover:-translate-y-0.5 active:translate-y-0"
         >
-          <span className="text-lg">🎲</span>
-          <span>Find Someone in {MOODS.find(m => m.id === selectedMood)?.label}</span>
+          <span>Find Someone Now</span>
+          <span className="text-xl">→</span>
         </button>
       </div>
     </div>
