@@ -84,7 +84,7 @@ export const MatchingScreen: React.FC<MatchingScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] px-4 py-8 max-w-md mx-auto text-center">
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] min-h-[calc(100dvh-4rem)] px-4 py-6 sm:py-8 max-w-md mx-auto text-center pb-[max(1.5rem,env(safe-area-inset-bottom))]">
       {/* Active Mood Pill */}
       <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-purple-950/70 border border-purple-800/50 text-purple-300 text-xs font-semibold mb-6 shadow-inner">
         <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
