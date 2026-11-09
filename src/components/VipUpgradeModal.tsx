@@ -161,16 +161,16 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
   const upiUri = `upi://pay?pa=${encodeURIComponent(DEFAULT_UPI_ID)}&pn=HUSH%20AI%20VIP&am=${upiAmount}&cu=INR&tn=VIP%20Pass%20${encodeURIComponent(currentPlan.name)}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in perspective-1000 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in perspective-1000 overflow-y-auto">
       <div 
-        className="w-full max-w-lg my-auto rounded-3xl bg-[#0d1021] border border-amber-500/30 shadow-2xl shadow-amber-950/40 overflow-hidden floating-screen-3d"
+        className="w-full max-w-lg my-auto max-h-[92dvh] flex flex-col rounded-3xl bg-[#0d1021] border border-amber-500/30 shadow-2xl shadow-amber-950/40 overflow-hidden floating-screen-3d"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Top Header - Clean & Spacious */}
-        <div className="relative px-6 py-6 sm:px-8 sm:py-7 bg-gradient-to-r from-amber-950/70 via-purple-950/60 to-slate-900 border-b border-white/5">
+        <div className="relative px-5 py-5 sm:px-8 sm:py-7 bg-gradient-to-r from-amber-950/70 via-purple-950/60 to-slate-900 border-b border-white/5 flex-shrink-0">
           <button
             onClick={onClose}
-            className="absolute top-5 right-5 p-2 rounded-2xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="absolute top-5 right-5 p-2 rounded-2xl text-slate-400 hover:text-white hover:bg-white/10 active:scale-95 transition-all"
           >
             <X className="w-5 h-5" />
           </button>
@@ -195,7 +195,7 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
               </div>
               <button
                 onClick={handleToggleDowngrade}
-                className="text-[11px] px-3 py-1 rounded-xl bg-slate-800 text-slate-300 hover:text-rose-300 hover:bg-slate-700 transition-colors"
+                className="text-[11px] px-3 py-1 rounded-xl bg-slate-800 text-slate-300 hover:text-rose-300 hover:bg-slate-700 active:scale-95 transition-all"
               >
                 Disable VIP
               </button>
@@ -204,7 +204,7 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
         </div>
 
         {/* Modal Body - Roomy & Uncluttered */}
-        <div className="p-6 sm:p-8 space-y-7 max-h-[75vh] overflow-y-auto text-left">
+        <div className="p-4 sm:p-8 space-y-6 sm:space-y-7 flex-1 overflow-y-auto text-left">
           {/* Payment Success Notification */}
           {paymentSuccess && (
             <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-center text-sm shadow-xl animate-bounce space-y-1">
@@ -247,7 +247,7 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
           </div>
 
           {/* 2. ONLY THE CLEAN QR CODE */}
-          <div className="p-6 rounded-3xl bg-black/60 border border-purple-500/30 flex flex-col items-center text-center space-y-5 shadow-2xl">
+          <div className="p-4 sm:p-6 rounded-3xl bg-black/60 border border-purple-500/30 flex flex-col items-center text-center space-y-4 sm:space-y-5 shadow-2xl">
             <div className="space-y-1">
               <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
                 2. Scan to Pay {currentPlan.price}
@@ -262,9 +262,9 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
               <img 
                 src={phonepeQrImg} 
                 alt="Scan with PhonePe or GPay" 
-                className="w-56 h-56 sm:w-64 sm:h-64 object-contain rounded-2xl shadow-inner"
+                className="w-44 h-44 sm:w-56 sm:h-56 object-contain rounded-2xl shadow-inner"
               />
-              <span className="text-[11px] sm:text-xs font-black tracking-widest text-slate-900 uppercase pt-1">
+              <span className="text-[10px] sm:text-xs font-black tracking-widest text-slate-900 uppercase pt-0.5 sm:pt-1">
                 SCAN WITH PHONEPE / GPAY
               </span>
             </div>
@@ -272,7 +272,7 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
             {/* Direct Mobile Tap Intent */}
             <a
               href={upiUri}
-              className="w-full max-w-xs py-2.5 px-4 rounded-xl bg-purple-900/40 hover:bg-purple-800/60 border border-purple-500/40 text-purple-200 text-xs font-bold flex items-center justify-center space-x-2 transition-colors"
+              className="w-full max-w-xs py-3 px-4 rounded-xl bg-purple-900/40 hover:bg-purple-800/60 border border-purple-500/40 text-purple-200 text-xs font-bold flex items-center justify-center space-x-2 active:scale-95 transition-all"
             >
               <Smartphone className="w-4 h-4 text-purple-300" />
               <span>Browsing on phone? Tap to Pay</span>
@@ -280,7 +280,7 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
           </div>
 
           {/* 3. STRICT PAYMENT VERIFICATION (No Free Click Bypass) */}
-          <div className="p-5 rounded-3xl bg-gradient-to-br from-indigo-950/60 via-slate-900 to-purple-950/60 border border-amber-500/40 space-y-4">
+          <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-indigo-950/60 via-slate-900 to-purple-950/60 border border-amber-500/40 space-y-4">
             <div className="flex items-center space-x-2">
               <Lock className="w-4 h-4 text-amber-400" />
               <span className="text-xs font-bold text-white uppercase tracking-wider">
@@ -303,13 +303,13 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
                 value={utrNumber}
                 onChange={(e) => setUtrNumber(e.target.value)}
                 placeholder="e.g. 431289562143"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-xs placeholder:text-slate-500 focus:outline-none focus:border-purple-400"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-base sm:text-xs placeholder:text-slate-500 focus:outline-none focus:border-purple-400"
               />
 
               <button
                 type="button"
                 onClick={handleSendProofOnWhatsApp}
-                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center space-x-2 shadow transition-colors"
+                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center space-x-2 shadow active:scale-95 transition-all"
               >
                 <Send className="w-4 h-4" />
                 <span>Send Screenshot & UTR on WhatsApp</span>
@@ -329,14 +329,14 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
                     setActivationCode(e.target.value);
                     setVerificationError(null);
                   }}
-                  placeholder="Enter Code received on WhatsApp"
-                  className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-amber-300 font-mono font-bold text-xs uppercase placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
+                  placeholder="Enter Code from WhatsApp"
+                  className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-amber-300 font-mono font-bold text-base sm:text-xs uppercase placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
                 />
                 <button
                   type="button"
                   onClick={handleStrictActivation}
                   disabled={verifyingPayment}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow flex items-center space-x-1.5 transition-all disabled:opacity-50"
+                  className="px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow flex items-center space-x-1.5 active:scale-95 transition-all disabled:opacity-50"
                 >
                   {verifyingPayment ? (
                     <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
@@ -394,7 +394,7 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
               <button
                 type="button"
                 onClick={handleCopyReferral}
-                className="flex-1 py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center justify-center space-x-1.5 shadow transition-colors"
+                className="flex-1 py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center justify-center space-x-1.5 shadow active:scale-95 transition-all"
               >
                 {copiedLink ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
                 <span>{copiedLink ? 'Link Copied!' : 'Copy Referral Link'}</span>
@@ -403,7 +403,7 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
               <button
                 type="button"
                 onClick={handleShareWhatsApp}
-                className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center space-x-1.5 shadow transition-colors"
+                className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center space-x-1.5 shadow active:scale-95 transition-all"
               >
                 <Share2 className="w-4 h-4" />
                 <span>WhatsApp</span>
