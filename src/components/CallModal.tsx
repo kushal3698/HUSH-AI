@@ -129,10 +129,10 @@ export const CallModal: React.FC<CallModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-lg animate-fade-in">
-      <div className="w-full max-w-lg bg-[#090d1a] border border-indigo-500/40 rounded-3xl overflow-hidden shadow-2xl flex flex-col items-center relative text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-lg animate-fade-in">
+      <div className="w-full max-w-lg max-h-[92dvh] bg-[#090d1a] border border-indigo-500/40 rounded-3xl overflow-hidden shadow-2xl flex flex-col items-center relative text-white">
         {/* Top Header */}
-        <div className="w-full px-5 py-3.5 bg-slate-900/60 border-b border-slate-800/80 flex items-center justify-between z-10">
+        <div className="w-full px-4 sm:px-5 py-3 sm:py-3.5 bg-slate-900/60 border-b border-slate-800/80 flex items-center justify-between z-10">
           <div className="flex items-center space-x-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-xs font-semibold text-slate-300">
@@ -146,10 +146,10 @@ export const CallModal: React.FC<CallModalProps> = ({
         </div>
 
         {/* Call Body */}
-        <div className="w-full min-h-[340px] flex flex-col items-center justify-center p-6 relative">
+        <div className="w-full flex-1 overflow-y-auto min-h-[260px] sm:min-h-[340px] flex flex-col items-center justify-center p-4 sm:p-6 relative">
           {/* Connected Video View */}
           {callState === 'connected' && callType === 'video' ? (
-            <div className="w-full h-80 relative rounded-2xl overflow-hidden bg-black border border-slate-800">
+            <div className="w-full h-64 sm:h-80 relative rounded-2xl overflow-hidden bg-black border border-slate-800">
               {/* Remote Video */}
               <video
                 ref={remoteVideoRef}
@@ -168,7 +168,7 @@ export const CallModal: React.FC<CallModalProps> = ({
               )}
 
               {/* Local PiP Video */}
-              <div className="absolute bottom-3 right-3 w-28 h-36 rounded-xl overflow-hidden border-2 border-indigo-500 shadow-xl bg-slate-900">
+              <div className="absolute bottom-3 right-3 w-24 h-32 sm:w-28 sm:h-36 rounded-xl overflow-hidden border-2 border-indigo-500 shadow-xl bg-slate-900">
                 <video
                   ref={localVideoRef}
                   autoPlay
@@ -262,26 +262,26 @@ export const CallModal: React.FC<CallModalProps> = ({
         />
 
         {/* Action Controls Bar */}
-        <div className="w-full px-6 py-4 bg-slate-900/90 border-t border-slate-800/80 flex items-center justify-center space-x-4">
+        <div className="w-full px-4 sm:px-6 py-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-slate-900/90 border-t border-slate-800/80 flex items-center justify-center space-x-3 sm:space-x-4">
           {callState === 'incoming' ? (
             /* Incoming Actions: Decline & Accept */
-            <div className="flex items-center space-x-8">
+            <div className="flex items-center space-x-6 sm:space-x-8">
               <button
                 onClick={onDecline}
-                className="flex flex-col items-center space-y-1.5 group"
+                className="flex flex-col items-center space-y-1.5 group active:scale-95 transition-transform"
               >
-                <div className="w-14 h-14 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-600/30 transition-transform group-hover:scale-105">
-                  <PhoneOff className="w-6 h-6" />
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-600/30 transition-transform group-hover:scale-105">
+                  <PhoneOff className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
                 <span className="text-xs text-rose-300 font-medium">Decline</span>
               </button>
 
               <button
                 onClick={handleAcceptWithAudio}
-                className="flex flex-col items-center space-y-1.5 group"
+                className="flex flex-col items-center space-y-1.5 group active:scale-95 transition-transform"
               >
-                <div className="w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30 transition-transform group-hover:scale-105 animate-pulse">
-                  <PhoneCall className="w-6 h-6" />
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30 transition-transform group-hover:scale-105 animate-pulse">
+                  <PhoneCall className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
                 <span className="text-xs text-emerald-300 font-medium">Accept</span>
               </button>
@@ -290,17 +290,17 @@ export const CallModal: React.FC<CallModalProps> = ({
             /* Calling Actions: Cancel */
             <button
               onClick={onEndCall}
-              className="px-6 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center space-x-2 shadow-lg shadow-rose-600/30 transition-all"
+              className="px-6 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center space-x-2 shadow-lg shadow-rose-600/30 active:scale-95 transition-all"
             >
               <PhoneOff className="w-4 h-4" />
               <span>Cancel Call</span>
             </button>
           ) : callState === 'connected' ? (
             /* Connected Actions: Mute, Video, End */
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3 sm:space-x-4">
               <button
                 onClick={onToggleMute}
-                className={`p-3.5 rounded-full border transition-all ${
+                className={`p-3 sm:p-3.5 rounded-full border active:scale-95 transition-all ${
                   isMuted 
                     ? 'bg-rose-950/80 border-rose-500 text-rose-300' 
                     : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-white'
@@ -313,7 +313,7 @@ export const CallModal: React.FC<CallModalProps> = ({
               {callType === 'video' && (
                 <button
                   onClick={onToggleVideo}
-                  className={`p-3.5 rounded-full border transition-all ${
+                  className={`p-3 sm:p-3.5 rounded-full border active:scale-95 transition-all ${
                     isVideoOff 
                       ? 'bg-rose-950/80 border-rose-500 text-rose-300' 
                       : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-white'
@@ -326,7 +326,7 @@ export const CallModal: React.FC<CallModalProps> = ({
 
               <button
                 onClick={onEndCall}
-                className="px-6 py-3 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center space-x-2 shadow-lg shadow-rose-600/30 transition-all"
+                className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center space-x-2 shadow-lg shadow-rose-600/30 active:scale-95 transition-all"
                 title="Hang Up"
               >
                 <PhoneOff className="w-5 h-5" />
@@ -336,7 +336,7 @@ export const CallModal: React.FC<CallModalProps> = ({
           ) : (
             <button
               onClick={onEndCall}
-              className="px-6 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+              className="px-6 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold active:scale-95"
             >
               Close
             </button>
