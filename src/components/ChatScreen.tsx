@@ -1119,7 +1119,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-3xl mx-auto w-full bg-[#080c18] sm:border-x sm:border-slate-800/80 relative">
+    <div className="flex flex-col h-[calc(100vh-4rem)] max-w-4xl mx-auto w-full bg-[#060913] sm:border-x sm:border-slate-800/80 relative">
       {/* Toast Banner for Vault Save & Threshold - Auto-dismisses within 5-6s */}
       {saveToast && (
         <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-indigo-950/95 border border-indigo-400 text-xs text-white shadow-2xl backdrop-blur-md flex items-center space-x-2.5 animate-fade-in max-w-md w-[92%] sm:w-auto">
@@ -1169,23 +1169,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             </div>
 
             {/* Persona Badges: City • Age • Gender */}
-            <div className="flex items-center space-x-1.5 text-xs text-slate-300 mt-0.5">
+            <div className="flex items-center space-x-1.5 text-xs text-slate-300 mt-0.5 flex-wrap sm:flex-nowrap">
               {room.strangerCity && (
-                <span className="text-cyan-300 font-medium inline-flex items-center space-x-0.5">
+                <span className="text-cyan-300 font-medium inline-flex items-center space-x-0.5 whitespace-nowrap">
                   <MapPin className="w-3 h-3 text-cyan-400 inline" />
                   <span>{room.strangerCity}</span>
                 </span>
               )}
-              {room.strangerCity && room.strangerAge && <span>•</span>}
+              {room.strangerCity && room.strangerAge && <span className="opacity-60">•</span>}
               {room.strangerAge && (
-                <span className="text-indigo-300 font-medium inline-flex items-center space-x-0.5">
+                <span className="text-indigo-300 font-medium inline-flex items-center space-x-0.5 whitespace-nowrap">
                   <Calendar className="w-3 h-3 text-indigo-400 inline" />
                   <span>{room.strangerAge} yrs</span>
                 </span>
               )}
-              {(room.strangerCity || room.strangerAge) && room.strangerGender && <span>•</span>}
+              {(room.strangerCity || room.strangerAge) && room.strangerGender && <span className="opacity-60">•</span>}
               {room.strangerGender && (
-                <span className="text-pink-300 font-medium inline-flex items-center space-x-0.5">
+                <span className="text-pink-300 font-medium inline-flex items-center space-x-0.5 whitespace-nowrap">
                   <Users className="w-3 h-3 text-pink-400 inline" />
                   <span>{room.strangerGender}</span>
                 </span>
