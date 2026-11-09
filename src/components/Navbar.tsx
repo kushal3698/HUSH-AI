@@ -37,9 +37,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="font-extrabold text-lg tracking-wider bg-gradient-to-r from-white via-slate-100 to-purple-200 bg-clip-text text-transparent">
                 HUSH<span className="text-purple-400">.</span>AI
               </span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-purple-950/80 text-purple-300 border border-purple-800/40">
-                PROTOTYPE
-              </span>
             </div>
           </div>
         </button>
