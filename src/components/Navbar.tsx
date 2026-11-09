@@ -1,20 +1,24 @@
 import React from 'react';
-import { Sparkles, MessageCircle, Settings, Link2 } from 'lucide-react';
+import { Sparkles, MessageCircle, Settings, Link2, Crown } from 'lucide-react';
 import { MoodId } from '../types';
+import { chatService } from '../services/chatService';
 
 interface NavbarProps {
   currentMood?: MoodId | null;
   onOpenSettings: () => void;
   onGoHome: () => void;
   onOpenReconnect?: () => void;
+  onOpenVip?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
   currentMood, 
   onOpenSettings, 
   onGoHome,
-  onOpenReconnect 
+  onOpenReconnect,
+  onOpenVip 
 }) => {
+  const isVip = chatService.isVip();
   return (
     <header className="sticky top-0 z-30 w-full glass-panel border-b border-slate-800/80 px-4 py-3">
       <div className="max-w-4xl mx-auto flex items-center justify-between">
@@ -51,6 +55,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right side controls */}
         <div className="flex items-center space-x-2">
+          {/* VIP Upgrade Button */}
+          {onOpenVip && (
+            <button
+              onClick={onOpenVip}
+              className={`flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-black shadow-md transition-all ${
+                isVip
+                  ? 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/50 text-amber-300 hover:border-amber-400'
+                  : 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 hover:scale-105'
+              }`}
+              title={isVip ? 'VIP Membership Active' : 'Upgrade to VIP for Gender/City filters'}
+            >
+              <Crown className={`w-3.5 h-3.5 ${isVip ? 'text-amber-400' : 'text-slate-950 fill-current'}`} />
+              <span className="hidden xs:inline sm:inline">{isVip ? 'VIP' : 'Get VIP'}</span>
+            </button>
+          )}
+
           {onOpenReconnect && (
             <button
               onClick={onOpenReconnect}
