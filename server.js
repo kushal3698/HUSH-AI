@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import http from 'http';
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT !== undefined ? Number(process.env.PORT) : 3001;
 
 // Minimal HTTP server for health checks & ping
 const server = http.createServer((req, res) => {
@@ -16,23 +16,17 @@ const server = http.createServer((req, res) => {
   }));
 });
 
-const wss = new WebSocketServer({ server });
+// 10MB maxPayload to support base64 media after unlock while preventing DoS memory crashes
+const wss = new WebSocketServer({ server, maxPayload: 10 * 1024 * 1024 });
 
 // In-memory state
-// waitingQueue: Array<{ socket, userId, alias, mood, joinedAt }>
 let waitingQueue = [];
-
-// activeRooms: Record<roomId, { userA: { socket, userId, alias }, userB: { socket, userId, alias }, mood }>
 const activeRooms = {};
-
-// socketToRoom: Map<socket, roomId>
 const socketToRoom = new Map();
-
-// referralStore: Map<referrerUserId, Set<visitorUserId>>
 const referralStore = new Map();
 
 function send(socket, data) {
-  if (socket.readyState === WebSocket.OPEN) {
+  if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(data));
   }
 }
@@ -47,7 +41,90 @@ function broadcastQueueStatus() {
   });
 }
 
+function createRoomAndNotify(userA, userB, options = {}) {
+  const isDirectReconnect = Boolean(options.isDirectReconnect);
+  const roomId = isDirectReconnect
+    ? `room_reconnect_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`
+    : `room_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+  const roomReconnectCode = options.reconnectCode || ('HUSH-' + Math.floor(100000 + Math.random() * 900000));
+
+  activeRooms[roomId] = {
+    userA: {
+      socket: userA.socket,
+      userId: userA.userId,
+      alias: userA.alias,
+      messageCount: 0,
+      city: userA.city,
+      age: userA.age,
+      gender: userA.gender,
+      isVip: Boolean(userA.isVip),
+      isOnline: true,
+      disconnectTimer: null
+    },
+    userB: {
+      socket: userB.socket,
+      userId: userB.userId,
+      alias: userB.alias,
+      messageCount: 0,
+      city: userB.city,
+      age: userB.age,
+      gender: userB.gender,
+      isVip: Boolean(userB.isVip),
+      isOnline: true,
+      disconnectTimer: null
+    },
+    processedMessageIds: new Set(),
+    mediaUnlocked: false,
+    mood: userA.mood || 'general',
+    createdAt: Date.now(),
+    reconnectCode: roomReconnectCode
+  };
+
+  socketToRoom.set(userA.socket, roomId);
+  socketToRoom.set(userB.socket, roomId);
+
+  const initialProgress = {
+    myMessageCount: 0,
+    strangerMessageCount: 0,
+    thresholdRequired: 10,
+    mediaUnlocked: false
+  };
+
+  send(userA.socket, {
+    type: 'MATCHED',
+    roomId,
+    strangerId: userB.userId,
+    strangerAlias: userB.alias,
+    mood: userA.mood || 'general',
+    strangerCity: userB.city,
+    strangerAge: userB.age,
+    strangerGender: userB.gender,
+    reconnectCode: roomReconnectCode,
+    ...(isDirectReconnect ? { isDirectReconnect: true } : {}),
+    strangerIsVip: Boolean(userB.isVip),
+    progress: initialProgress
+  });
+
+  send(userB.socket, {
+    type: 'MATCHED',
+    roomId,
+    strangerId: userA.userId,
+    strangerAlias: userA.alias,
+    mood: userB.mood || 'general',
+    strangerCity: userA.city,
+    strangerAge: userA.age,
+    strangerGender: userA.gender,
+    reconnectCode: roomReconnectCode,
+    ...(isDirectReconnect ? { isDirectReconnect: true } : {}),
+    strangerIsVip: Boolean(userA.isVip),
+    progress: initialProgress
+  });
+}
+
 function tryMatchUsers() {
+  // Purge any closed sockets before matching
+  waitingQueue = waitingQueue.filter(u => u.socket && u.socket.readyState === WebSocket.OPEN);
   if (waitingQueue.length < 2) return;
 
   // 0. Priority: Match users who entered the exact same Reconnect Code
@@ -57,112 +134,48 @@ function tryMatchUsers() {
 
     for (let j = i + 1; j < waitingQueue.length; j++) {
       const userB = waitingQueue[j];
-      if (userA.socket === userB.socket) continue;
+      if (userA.socket === userB.socket || (userA.userId && userA.userId === userB.userId)) continue;
 
       if (userB.reconnectCode && userA.reconnectCode.trim().toUpperCase() === userB.reconnectCode.trim().toUpperCase()) {
         waitingQueue.splice(j, 1);
         waitingQueue.splice(i, 1);
 
-        const roomId = `room_reconnect_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-        
-        activeRooms[roomId] = {
-          userA: { 
-            socket: userA.socket, 
-            userId: userA.userId, 
-            alias: userA.alias, 
-            messageCount: 0,
-            city: userA.city,
-            age: userA.age,
-            gender: userA.gender
-          },
-          userB: { 
-            socket: userB.socket, 
-            userId: userB.userId, 
-            alias: userB.alias, 
-            messageCount: 0,
-            city: userB.city,
-            age: userB.age,
-            gender: userB.gender
-          },
-          processedMessageIds: new Set(),
-          mediaUnlocked: false,
-          mood: userA.mood || 'general',
-          createdAt: Date.now(),
-          reconnectCode: userA.reconnectCode
-        };
-
-        socketToRoom.set(userA.socket, roomId);
-        socketToRoom.set(userB.socket, roomId);
-
-        console.log(`[RECONNECT MATCH] Room ${roomId} for code ${userA.reconnectCode}: ${userA.alias} <---> ${userB.alias}`);
-
-        const initialProgress = {
-          myMessageCount: 0,
-          strangerMessageCount: 0,
-          thresholdRequired: 10,
-          mediaUnlocked: false
-        };
-
-        send(userA.socket, {
-          type: 'MATCHED',
-          roomId,
-          strangerId: userB.userId,
-          strangerAlias: userB.alias,
-          mood: userA.mood || 'general',
-          strangerCity: userB.city,
-          strangerAge: userB.age,
-          strangerGender: userB.gender,
+        createRoomAndNotify(userA, userB, {
           reconnectCode: userA.reconnectCode,
-          isDirectReconnect: true,
-          strangerIsVip: Boolean(userB.isVip),
-          progress: initialProgress
+          isDirectReconnect: true
         });
 
-        send(userB.socket, {
-          type: 'MATCHED',
-          roomId,
-          strangerId: userA.userId,
-          strangerAlias: userA.alias,
-          mood: userB.mood || 'general',
-          strangerCity: userA.city,
-          strangerAge: userA.age,
-          strangerGender: userA.gender,
-          reconnectCode: userA.reconnectCode,
-          isDirectReconnect: true,
-          strangerIsVip: Boolean(userA.isVip),
-          progress: initialProgress
-        });
-
+        console.log(`[RECONNECT MATCH] Code ${userA.reconnectCode}: ${userA.alias} <---> ${userB.alias}`);
         broadcastQueueStatus();
         return tryMatchUsers();
       }
     }
   }
 
-  // Prioritize VIP users for faster, prioritized matching
-  waitingQueue.sort((a, b) => (b.isVip ? 1 : 0) - (a.isVip ? 1 : 0));
+  // Prioritize VIP users while preserving FIFO order within tiers
+  waitingQueue.sort((a, b) => {
+    const vipDiff = (b.isVip ? 1 : 0) - (a.isVip ? 1 : 0);
+    return vipDiff !== 0 ? vipDiff : a.joinedAt - b.joinedAt;
+  });
 
-  // 1. Try to find pairs with the exact same mood
+  // 1. Standard & VIP Filtered Matchmaking
   for (let i = 0; i < waitingQueue.length; i++) {
     const userA = waitingQueue[i];
-
-    // Don't pair users who are exclusively waiting for a specific reconnect code with random strangers
     if (userA.reconnectCode) continue;
 
     for (let j = i + 1; j < waitingQueue.length; j++) {
       const userB = waitingQueue[j];
-
-      // Disallow matching identical socket connections or users waiting on reconnect codes
       if (userA.socket === userB.socket || userB.reconnectCode) continue;
+      if (userA.userId && userA.userId === userB.userId) continue;
 
       // Check VIP Gender filters
       if (userA.isVip && userA.targetGender && userA.targetGender !== 'any') {
         const bGender = String(userB.gender || '').toLowerCase();
-        if (!bGender.includes(userA.targetGender)) continue;
+        if (bGender !== userA.targetGender && !bGender.includes(userA.targetGender)) continue;
       }
       if (userB.isVip && userB.targetGender && userB.targetGender !== 'any') {
         const aGender = String(userA.gender || '').toLowerCase();
-        if (!aGender.includes(userB.targetGender)) continue;
+        if (aGender !== userB.targetGender && !aGender.includes(userB.targetGender)) continue;
       }
 
       // Check VIP City filters
@@ -175,96 +188,28 @@ function tryMatchUsers() {
         if (!aCity.includes(userB.targetCity)) continue;
       }
 
-      // Match if same mood OR either selected 'general'
       const sameMood = userA.mood === userB.mood;
       const eitherGeneral = userA.mood === 'general' || userB.mood === 'general';
       const waitedLong = (Date.now() - userA.joinedAt > 3000) || (Date.now() - userB.joinedAt > 3000);
 
       if (sameMood || eitherGeneral || waitedLong) {
-        // Remove both from queue
         waitingQueue.splice(j, 1);
         waitingQueue.splice(i, 1);
 
-        const roomId = `room_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-        const roomReconnectCode = 'HUSH-' + Math.floor(100000 + Math.random() * 900000);
-        
-        activeRooms[roomId] = {
-          userA: { 
-            socket: userA.socket, 
-            userId: userA.userId, 
-            alias: userA.alias, 
-            messageCount: 0,
-            city: userA.city,
-            age: userA.age,
-            gender: userA.gender,
-            isVip: Boolean(userA.isVip)
-          },
-          userB: { 
-            socket: userB.socket, 
-            userId: userB.userId, 
-            alias: userB.alias, 
-            messageCount: 0,
-            city: userB.city,
-            age: userB.age,
-            gender: userB.gender,
-            isVip: Boolean(userB.isVip)
-          },
-          processedMessageIds: new Set(),
-          mediaUnlocked: false,
-          mood: userA.mood,
-          createdAt: Date.now(),
-          reconnectCode: roomReconnectCode
-        };
-
-        socketToRoom.set(userA.socket, roomId);
-        socketToRoom.set(userB.socket, roomId);
-
-        console.log(`[MATCH CREATED] Room ${roomId} (Code: ${roomReconnectCode}): ${userA.alias}${userA.isVip ? ' (VIP)' : ''} <---> ${userB.alias}${userB.isVip ? ' (VIP)' : ''} (${userA.mood})`);
-
-        const initialProgress = {
-          myMessageCount: 0,
-          strangerMessageCount: 0,
-          thresholdRequired: 10,
-          mediaUnlocked: false
-        };
-
-        send(userA.socket, {
-          type: 'MATCHED',
-          roomId,
-          strangerId: userB.userId,
-          strangerAlias: userB.alias,
-          mood: userA.mood,
-          strangerCity: userB.city,
-          strangerAge: userB.age,
-          strangerGender: userB.gender,
-          reconnectCode: roomReconnectCode,
-          strangerIsVip: Boolean(userB.isVip),
-          progress: initialProgress
-        });
-
-        send(userB.socket, {
-          type: 'MATCHED',
-          roomId,
-          strangerId: userA.userId,
-          strangerAlias: userA.alias,
-          mood: userB.mood,
-          strangerCity: userA.city,
-          strangerAge: userA.age,
-          strangerGender: userA.gender,
-          reconnectCode: roomReconnectCode,
-          strangerIsVip: Boolean(userA.isVip),
-          progress: initialProgress
-        });
+        createRoomAndNotify(userA, userB);
 
         broadcastQueueStatus();
-        return tryMatchUsers(); // Check if more pairs can be matched
+        return tryMatchUsers();
       }
     }
   }
 }
 
 wss.on('connection', (ws) => {
-  console.log('[CLIENT CONNECTED]');
+  ws.isAlive = true;
+  ws.on('pong', () => {
+    ws.isAlive = true;
+  });
 
   ws.on('message', (message) => {
     try {
@@ -273,16 +218,15 @@ wss.on('connection', (ws) => {
       switch (data.type) {
         case 'JOIN_QUEUE': {
           ws.userId = data.userId;
-          // Remove if already in queue or existing room
           leaveAnyRoom(ws);
-          waitingQueue = waitingQueue.filter(entry => entry.socket !== ws);
+          waitingQueue = waitingQueue.filter(entry => entry.socket !== ws && entry.userId !== data.userId);
 
           waitingQueue.push({
             socket: ws,
             userId: data.userId,
-            alias: data.alias,
-            mood: data.mood,
-            city: data.city || null,
+            alias: String(data.alias || 'Anonymous').slice(0, 40),
+            mood: data.mood || 'general',
+            city: data.city ? String(data.city).slice(0, 50) : null,
             age: data.age || null,
             gender: data.gender || null,
             isVip: Boolean(data.isVip),
@@ -292,7 +236,6 @@ wss.on('connection', (ws) => {
             joinedAt: Date.now()
           });
 
-          console.log(`[QUEUE JOIN] ${data.alias}${data.isVip ? ' [VIP]' : ''} waiting for "${data.mood}"${data.reconnectCode ? ` (Code: ${data.reconnectCode})` : ''}${data.targetGender ? ` [TargetGender: ${data.targetGender}]` : ''}${data.targetCity ? ` [TargetCity: ${data.targetCity}]` : ''}. Total waiting: ${waitingQueue.length}`);
           broadcastQueueStatus();
           tryMatchUsers();
           break;
@@ -320,7 +263,6 @@ wss.on('connection', (ws) => {
             const set = referralStore.get(referrerId);
             set.add(visitorId);
             const count = set.size;
-            console.log(`[REFERRAL] User ${referrerId} referred ${visitorId}. Total: ${count}`);
 
             for (const client of wss.clients) {
               if (client.readyState === WebSocket.OPEN && client.userId === referrerId) {
@@ -337,7 +279,6 @@ wss.on('connection', (ws) => {
 
         case 'CANCEL_QUEUE': {
           waitingQueue = waitingQueue.filter(entry => entry.socket !== ws);
-          console.log(`[QUEUE CANCEL] Socket left queue. Total waiting: ${waitingQueue.length}`);
           broadcastQueueStatus();
           break;
         }
@@ -353,7 +294,7 @@ wss.on('connection', (ws) => {
           const partnerSocket = partnerUser.socket;
 
           const msgId = typeof data.id === 'string' ? data.id.trim() : '';
-          const rawText = typeof data.text === 'string' ? data.text : '';
+          const rawText = typeof data.text === 'string' ? data.text.slice(0, 4000) : '';
           const trimmedText = rawText.trim();
 
           const isAlreadyProcessed = msgId ? room.processedMessageIds.has(msgId) : false;
@@ -365,33 +306,28 @@ wss.on('connection', (ws) => {
 
           if (msgId && !isAlreadyProcessed) {
             room.processedMessageIds.add(msgId);
-            // Qualifying message check: non-empty trimmed text, not AI, not attachment, not reaction, not edit, not game
             if (trimmedText.length > 0 && !isAi && !isAttachment && !isReaction && !isEdit && !isGame) {
               senderUser.messageCount = (senderUser.messageCount || 0) + 1;
             }
           }
 
-          // Evaluate threshold: both users must independently have >= 10 messages
           const wasUnlocked = room.mediaUnlocked;
           const nowUnlocked = (room.userA.messageCount >= 10) && (room.userB.messageCount >= 10);
           room.mediaUnlocked = nowUnlocked;
 
-          // Forward the text message to the partner
           send(partnerSocket, {
             type: 'NEW_MESSAGE',
             id: data.id,
-            text: data.text,
+            text: rawText,
             timestamp: Date.now(),
             isAiSuggested: isAi
           });
 
-          // Send immediate delivery acknowledgment to sender
           send(ws, {
             type: 'MESSAGE_DELIVERED',
             id: data.id
           });
 
-          // Authoritative progress broadcast to both participants
           send(room.userA.socket, {
             type: 'CONVERSATION_PROGRESS',
             progress: {
@@ -443,9 +379,7 @@ wss.on('connection', (ws) => {
 
           const room = activeRooms[roomId];
 
-          // BACKEND SECURITY CHECK: Media threshold enforcement
           if (!room.mediaUnlocked) {
-            console.warn(`[SECURITY REJECT] Unauthorized media sharing attempt in room ${roomId}. Threshold not met.`);
             const isUserA = room.userA.socket === ws;
             const myUser = isUserA ? room.userA : room.userB;
             const partnerUser = isUserA ? room.userB : room.userA;
@@ -487,9 +421,7 @@ wss.on('connection', (ws) => {
 
           const room = activeRooms[roomId];
 
-          // BACKEND SECURITY CHECK: Calling threshold enforcement
           if (!room.mediaUnlocked) {
-            console.warn(`[SECURITY REJECT] Unauthorized call signal attempt in room ${roomId}. Threshold not met.`);
             send(ws, {
               type: 'CALL_REJECTED',
               error: 'Audio and video calls are locked. Both participants must independently send at least 10 messages each to unlock media and calls.',
@@ -549,7 +481,7 @@ wss.on('connection', (ws) => {
             room.userB.isOnline = data.status !== 'offline';
           }
 
-          const partnerSocket = isUserA ? (room.userB && room.userB.socket) : (room.userA && room.userA.socket);
+          const partnerSocket = isUserA ? room.userB?.socket : room.userA?.socket;
           if (partnerSocket) {
             send(partnerSocket, {
               type: 'PARTNER_STATUS',
@@ -575,46 +507,39 @@ wss.on('connection', (ws) => {
             return;
           }
 
-          // Cancel any pending disconnect grace timer
-          if (room.disconnectTimer) {
-            clearTimeout(room.disconnectTimer);
-            room.disconnectTimer = null;
+          const rejoiningUser = isUserA ? room.userA : room.userB;
+          const partnerUser = isUserA ? room.userB : room.userA;
+
+          if (rejoiningUser.disconnectTimer) {
+            clearTimeout(rejoiningUser.disconnectTimer);
+            rejoiningUser.disconnectTimer = null;
           }
 
-          // Re-bind current socket to room
-          if (isUserA) {
-            room.userA.socket = ws;
-            room.userA.isOnline = true;
-          } else {
-            room.userB.socket = ws;
-            room.userB.isOnline = true;
+          if (rejoiningUser.socket && rejoiningUser.socket !== ws) {
+            socketToRoom.delete(rejoiningUser.socket);
           }
 
+          rejoiningUser.socket = ws;
+          rejoiningUser.isOnline = true;
           socketToRoom.set(ws, roomId);
-
-          const myCount = isUserA ? room.userA.messageCount : room.userB.messageCount;
-          const strangerCount = isUserA ? room.userB.messageCount : room.userA.messageCount;
 
           send(ws, {
             type: 'ROOM_RESTORED',
             roomId,
             progress: {
-              myMessageCount: myCount || 0,
-              strangerMessageCount: strangerCount || 0,
+              myMessageCount: rejoiningUser.messageCount || 0,
+              strangerMessageCount: partnerUser.messageCount || 0,
               thresholdRequired: 10,
               mediaUnlocked: Boolean(room.mediaUnlocked)
             }
           });
 
-          // Notify partner that user reconnected and is online
-          const partnerSocket = isUserA ? (room.userB && room.userB.socket) : (room.userA && room.userA.socket);
-          if (partnerSocket) {
-            send(partnerSocket, {
+          if (partnerUser?.socket) {
+            send(partnerUser.socket, {
               type: 'PARTNER_STATUS',
               status: 'online'
             });
           }
-          console.log(`[ROOM REJOINED] User ${userId} restored socket in room ${roomId}.`);
           break;
         }
 
@@ -659,13 +584,12 @@ wss.on('connection', (ws) => {
           if (aCount < 3 || bCount < 3) {
             send(ws, {
               type: 'REVEAL_ERROR',
-              message: `Mutual reveal requires at least 3 messages each from both participants.`
+              message: 'Mutual reveal requires at least 3 messages each from both participants.'
             });
             return;
           }
 
           const partnerSocket = room.userA.socket === ws ? room.userB.socket : room.userA.socket;
-
           send(partnerSocket, {
             type: 'REVEAL_REQUESTED',
             payload: data.payload
@@ -713,7 +637,6 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    console.log('[CLIENT DISCONNECTED]');
     waitingQueue = waitingQueue.filter(entry => entry.socket !== ws);
     handleSocketClose(ws);
     broadcastQueueStatus();
@@ -728,50 +651,48 @@ function handleSocketClose(ws) {
   const isUserA = room.userA && room.userA.socket === ws;
   const isUserB = room.userB && room.userB.socket === ws;
 
-  if (isUserA) {
-    room.userA.isOnline = false;
-    room.userA.socket = null;
-  } else if (isUserB) {
-    room.userB.isOnline = false;
-    room.userB.socket = null;
-  }
+  const disconnectingUser = isUserA ? room.userA : isUserB ? room.userB : null;
+  const remainingUser = isUserA ? room.userB : isUserB ? room.userA : null;
 
   socketToRoom.delete(ws);
 
-  // If BOTH users are gone, immediately clean up the room
-  if ((!room.userA || !room.userA.socket) && (!room.userB || !room.userB.socket)) {
-    if (room.disconnectTimer) clearTimeout(room.disconnectTimer);
+  if (!disconnectingUser) return;
+
+  disconnectingUser.isOnline = false;
+  disconnectingUser.socket = null;
+
+  // If both users are disconnected, clean up immediately
+  if (!room.userA?.socket && !room.userB?.socket) {
+    if (room.userA?.disconnectTimer) clearTimeout(room.userA.disconnectTimer);
+    if (room.userB?.disconnectTimer) clearTimeout(room.userB.disconnectTimer);
     delete activeRooms[roomId];
-    console.log(`[ROOM CLOSED] ${roomId} ended (both participants left).`);
     return;
   }
 
-  // Notify the remaining partner that stranger is offline (Away)
-  const partnerSocket = isUserA ? (room.userB && room.userB.socket) : (room.userA && room.userA.socket);
-  if (partnerSocket) {
-    send(partnerSocket, {
+  if (remainingUser?.socket) {
+    send(remainingUser.socket, {
       type: 'PARTNER_STATUS',
       status: 'offline'
     });
   }
 
-  // Grace timer before declaring partner left (60 seconds)
-  if (!room.disconnectTimer) {
-    room.disconnectTimer = setTimeout(() => {
-      const currentRoom = activeRooms[roomId];
-      if (currentRoom) {
-        const remainingPartner = (currentRoom.userA && currentRoom.userA.socket) || (currentRoom.userB && currentRoom.userB.socket);
-        if (remainingPartner) {
-          send(remainingPartner, {
-            type: 'PARTNER_LEFT'
-          });
-          socketToRoom.delete(remainingPartner);
-        }
-        delete activeRooms[roomId];
-        console.log(`[ROOM CLOSED] ${roomId} grace period expired.`);
-      }
-    }, 60000);
+  // Per-user 60-second grace timer
+  if (disconnectingUser.disconnectTimer) {
+    clearTimeout(disconnectingUser.disconnectTimer);
   }
+
+  disconnectingUser.disconnectTimer = setTimeout(() => {
+    const currentRoom = activeRooms[roomId];
+    if (currentRoom && !disconnectingUser.socket) {
+      if (remainingUser?.socket) {
+        send(remainingUser.socket, { type: 'PARTNER_LEFT' });
+        socketToRoom.delete(remainingUser.socket);
+      }
+      if (currentRoom.userA?.disconnectTimer) clearTimeout(currentRoom.userA.disconnectTimer);
+      if (currentRoom.userB?.disconnectTimer) clearTimeout(currentRoom.userB.disconnectTimer);
+      delete activeRooms[roomId];
+    }
+  }, 60000);
 }
 
 function leaveAnyRoom(ws) {
@@ -780,19 +701,18 @@ function leaveAnyRoom(ws) {
 
   const room = activeRooms[roomId];
   if (room) {
-    if (room.disconnectTimer) clearTimeout(room.disconnectTimer);
-    const partnerSocket = room.userA && room.userA.socket === ws ? (room.userB && room.userB.socket) : (room.userA && room.userA.socket);
+    if (room.userA?.disconnectTimer) clearTimeout(room.userA.disconnectTimer);
+    if (room.userB?.disconnectTimer) clearTimeout(room.userB.disconnectTimer);
+
+    const partnerSocket = room.userA?.socket === ws ? room.userB?.socket : room.userA?.socket;
     if (partnerSocket) {
-      send(partnerSocket, {
-        type: 'PARTNER_LEFT'
-      });
+      send(partnerSocket, { type: 'PARTNER_LEFT' });
       socketToRoom.delete(partnerSocket);
     }
 
-    if (room.userA && room.userA.socket) socketToRoom.delete(room.userA.socket);
-    if (room.userB && room.userB.socket) socketToRoom.delete(room.userB.socket);
+    if (room.userA?.socket) socketToRoom.delete(room.userA.socket);
+    if (room.userB?.socket) socketToRoom.delete(room.userB.socket);
     delete activeRooms[roomId];
-    console.log(`[ROOM CLOSED] ${roomId} ended by explicit leave.`);
   }
 }
 
