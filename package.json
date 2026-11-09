@@ -10,6 +10,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test:threshold": "node tests/threshold_suite.js",
+    "test:privacy": "node tests/privacy_suite.js",
+    "test": "node tests/threshold_suite.js && node tests/privacy_suite.js",
     "start": "node server.js"
   },
   "dependencies": {
