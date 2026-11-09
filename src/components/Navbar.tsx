@@ -1,14 +1,20 @@
 import React from 'react';
-import { Sparkles, MessageCircle, Settings } from 'lucide-react';
+import { Sparkles, MessageCircle, Settings, Link2 } from 'lucide-react';
 import { MoodId } from '../types';
 
 interface NavbarProps {
   currentMood?: MoodId | null;
   onOpenSettings: () => void;
   onGoHome: () => void;
+  onOpenReconnect?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentMood, onOpenSettings, onGoHome }) => {
+export const Navbar: React.FC<NavbarProps> = ({ 
+  currentMood, 
+  onOpenSettings, 
+  onGoHome,
+  onOpenReconnect 
+}) => {
   return (
     <header className="sticky top-0 z-30 w-full glass-panel border-b border-slate-800/80 px-4 py-3">
       <div className="max-w-4xl mx-auto flex items-center justify-between">
@@ -45,6 +51,17 @@ export const Navbar: React.FC<NavbarProps> = ({ currentMood, onOpenSettings, onG
 
         {/* Right side controls */}
         <div className="flex items-center space-x-2">
+          {onOpenReconnect && (
+            <button
+              onClick={onOpenReconnect}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-purple-950/70 hover:bg-purple-900 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-semibold shadow-sm transition-all"
+              title="Reconnect with a past partner"
+            >
+              <Link2 className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="hidden xs:inline sm:inline">Reconnect</span>
+            </button>
+          )}
+
           <div className="hidden md:flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-indigo-950/40 border border-indigo-800/30 text-[11px] text-indigo-300">
             <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
             <span>AI Assisted</span>
