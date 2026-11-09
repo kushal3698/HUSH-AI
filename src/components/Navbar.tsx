@@ -41,14 +41,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </button>
 
-        {/* Center / Mood indicator if active */}
-        {currentMood && (
-          <div className="hidden sm:flex items-center space-x-2 px-3 py-1 rounded-full bg-slate-800/60 border border-slate-700/50 text-xs text-slate-300">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Room:</span>
-            <span className="font-medium text-white capitalize">{currentMood}</span>
-          </div>
-        )}
+
 
         {/* Right side controls */}
         <div className="flex items-center space-x-2">
@@ -68,7 +61,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
-          {onOpenReconnect && (
+          {/* Reconnect Button (only on welcome/landing screens to avoid chat header clutter) */}
+          {!currentMood && onOpenReconnect && (
             <button
               onClick={onOpenReconnect}
               className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-purple-950/70 hover:bg-purple-900 border border-purple-500/40 text-purple-200 hover:text-white text-xs font-semibold shadow-sm transition-all"
@@ -79,10 +73,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
-          <div className="hidden md:flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-indigo-950/40 border border-indigo-800/30 text-[11px] text-indigo-300">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            <span>AI Assisted</span>
-          </div>
+          {!currentMood && (
+            <div className="hidden md:flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-indigo-950/40 border border-indigo-800/30 text-[11px] text-indigo-300">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <span>AI Assisted</span>
+            </div>
+          )}
 
           <button
             onClick={onOpenSettings}
