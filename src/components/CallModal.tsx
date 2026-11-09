@@ -6,7 +6,8 @@ import {
   VideoOff, 
   Mic, 
   MicOff, 
-  ShieldCheck 
+  ShieldCheck,
+  Volume2
 } from 'lucide-react';
 import { CallType, CallState } from '../types';
 
@@ -42,8 +43,10 @@ export const CallModal: React.FC<CallModalProps> = ({
   onToggleVideo
 }) => {
   const [callDuration, setCallDuration] = useState(0);
+  const [audioBlocked, setAudioBlocked] = useState(false);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
     let timer: number;
@@ -53,6 +56,7 @@ export const CallModal: React.FC<CallModalProps> = ({
       }, 1000);
     } else {
       setCallDuration(0);
+      setAudioBlocked(false);
     }
     return () => clearInterval(timer);
   }, [callState]);
@@ -68,6 +72,32 @@ export const CallModal: React.FC<CallModalProps> = ({
       remoteVideoRef.current.srcObject = remoteStream;
     }
   }, [remoteStream, callState]);
+
+  // Unconditional direct remote audio stream playback
+  useEffect(() => {
+    if (remoteAudioRef.current) {
+      if (remoteStream) {
+        remoteAudioRef.current.srcObject = remoteStream;
+        const playPromise = remoteAudioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => setAudioBlocked(false))
+            .catch((err) => {
+              console.warn('[CallModal] Remote audio play failed (autoplay restriction):', err);
+              setAudioBlocked(true);
+            });
+        }
+      } else {
+        remoteAudioRef.current.srcObject = null;
+      }
+    }
+  }, [remoteStream, callState]);
+
+  const handleEnableAudio = () => {
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.play().then(() => setAudioBlocked(false)).catch(console.warn);
+    }
+  };
 
   if (!isOpen || callState === 'idle') return null;
 
@@ -171,17 +201,43 @@ export const CallModal: React.FC<CallModalProps> = ({
               </div>
 
               {callState === 'connected' && callType === 'audio' && (
-                <div className="flex items-center space-x-1 py-2">
-                  <div className="w-1.5 h-6 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                  <div className="w-1.5 h-10 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                  <div className="w-1.5 h-12 bg-cyan-400 rounded-full animate-bounce" />
-                  <div className="w-1.5 h-8 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                  <div className="w-1.5 h-5 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="flex items-center space-x-1 py-1">
+                    <div className="w-1.5 h-6 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <div className="w-1.5 h-10 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <div className="w-1.5 h-12 bg-cyan-400 rounded-full animate-bounce" />
+                    <div className="w-1.5 h-8 bg-indigo-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <div className="w-1.5 h-5 bg-purple-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                  </div>
+                  <span className="text-[11px] text-emerald-400 font-semibold flex items-center space-x-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span>Live Two-Way Voice Active</span>
+                  </span>
                 </div>
+              )}
+
+              {/* Autoplay blocked banner */}
+              {audioBlocked && (
+                <button
+                  type="button"
+                  onClick={handleEnableAudio}
+                  className="px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center space-x-2 animate-bounce shadow-xl transition-all"
+                >
+                  <Volume2 className="w-4 h-4 text-slate-950" />
+                  <span>Tap Here to Hear Voice Audio</span>
+                </button>
               )}
             </div>
           )}
         </div>
+
+        {/* Dedicated Remote Audio Element for Crisp Two-Way Sound */}
+        <audio
+          ref={remoteAudioRef}
+          autoPlay
+          playsInline
+          className="hidden"
+        />
 
         {/* Action Controls Bar */}
         <div className="w-full px-6 py-4 bg-slate-900/90 border-t border-slate-800/80 flex items-center justify-center space-x-4">
