@@ -33,6 +33,7 @@ type ProgressCallback = (progress: ConversationProgress) => void;
 type MediaRejectedCallback = (error: string) => void;
 type CallRejectedCallback = (error: string) => void;
 type CallSignalCallback = (signal: CallSignalPayload) => void;
+type PartnerStatusCallback = (status: 'online' | 'offline') => void;
 
 class RealtimeChatService {
   private socket: WebSocket | null = null;
@@ -47,6 +48,7 @@ class RealtimeChatService {
   private onMessageReadListener: MessageReadCallback | null = null;
   private onTypingListener: TypingCallback | null = null;
   private onPartnerLeftListener: PartnerLeftCallback | null = null;
+  private onPartnerStatusListener: PartnerStatusCallback | null = null;
   private onGameLaunchedListener: GameLaunchedCallback | null = null;
   private onGameVotedListener: GameVotedCallback | null = null;
   private onConnectionOfferedListener: ConnectionOfferedCallback | null = null;
@@ -202,6 +204,11 @@ class RealtimeChatService {
 
       case 'CALL_REJECTED': {
         this.onCallRejectedListener?.(data.error);
+        break;
+      }
+
+      case 'PARTNER_STATUS': {
+        this.onPartnerStatusListener?.(data.status);
         break;
       }
 
@@ -406,6 +413,8 @@ class RealtimeChatService {
         senderAlias: data.senderAlias,
         reconnectCode: data.reconnectCode
       });
+    } else if (data.type === 'TAB_PARTNER_STATUS' && this.currentRoom && data.roomId === this.currentRoom.id) {
+      this.onPartnerStatusListener?.(data.status);
     } else if (data.type === 'TAB_LEFT' && this.currentRoom && data.roomId === this.currentRoom.id) {
       this.onPartnerLeftListener?.();
       this.currentRoom = null;
@@ -1008,6 +1017,29 @@ class RealtimeChatService {
 
   onCallRejected(callback: CallRejectedCallback) {
     this.onCallRejectedListener = callback;
+  }
+
+  sendPresence(status: 'online' | 'offline') {
+    if (!this.currentRoom) return;
+
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({
+        type: 'PRESENCE',
+        status
+      }));
+    }
+
+    if (this.broadcastChannel) {
+      this.broadcastChannel.postMessage({
+        type: 'TAB_PARTNER_STATUS',
+        roomId: this.currentRoom.id,
+        status
+      });
+    }
+  }
+
+  onPartnerStatus(callback: PartnerStatusCallback) {
+    this.onPartnerStatusListener = callback;
   }
 }
 
