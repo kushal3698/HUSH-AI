@@ -12,10 +12,17 @@ import { chatService } from './services/chatService';
 import { ScreenState, MoodId, ChatRoom, UserSession, ReportReason } from './types';
 
 export const App: React.FC = () => {
-  // Navigation & Screen state
-  const [currentScreen, setCurrentScreen] = useState<ScreenState>('welcome');
-  const [selectedMood, setSelectedMood] = useState<MoodId>('career');
-  const [currentRoom, setCurrentRoom] = useState<ChatRoom | null>(null);
+  // Navigation & Screen state - restored automatically on refresh
+  const [currentRoom, setCurrentRoom] = useState<ChatRoom | null>(() => {
+    return chatService.getActiveRoom();
+  });
+  const [currentScreen, setCurrentScreen] = useState<ScreenState>(() => {
+    return chatService.getActiveRoom() ? 'chat' : 'welcome';
+  });
+  const [selectedMood, setSelectedMood] = useState<MoodId>(() => {
+    const active = chatService.getActiveRoom();
+    return active ? active.moodId : 'career';
+  });
   const [queueStatus, setQueueStatus] = useState<{ position: number; totalWaiting: number } | null>(null);
 
   // User session
@@ -43,6 +50,14 @@ export const App: React.FC = () => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
+
+  // Re-sync active room on mount if refreshed
+  useEffect(() => {
+    const active = chatService.getActiveRoom();
+    if (active) {
+      chatService.rejoinRoom(active.id);
+    }
+  }, []);
 
   // Detect ?reconnect=CODE or ?ref=USER_ID from URL on page load
   useEffect(() => {
@@ -86,6 +101,7 @@ export const App: React.FC = () => {
     chatService.joinQueue(
       mood,
       (room) => {
+        chatService.saveActiveRoom(room);
         setCurrentRoom(room);
         setCurrentScreen('chat');
         showToast(`Matched with ${room.strangerAlias}!`);
@@ -113,6 +129,7 @@ export const App: React.FC = () => {
     chatService.joinQueue(
       'general',
       (room) => {
+        chatService.saveActiveRoom(room);
         setCurrentRoom(room);
         setCurrentScreen('chat');
         showToast(`⚡ Reconnected with ${room.strangerAlias}!`);
@@ -137,6 +154,7 @@ export const App: React.FC = () => {
 
   // Skip to next person
   const handleNextPerson = () => {
+    chatService.clearActiveRoomStorage();
     chatService.leaveChat();
     setCurrentRoom(null);
     startMatching(selectedMood);
@@ -144,6 +162,7 @@ export const App: React.FC = () => {
 
   // Leave / end chat
   const handleEndChat = () => {
+    chatService.clearActiveRoomStorage();
     chatService.leaveChat();
     setCurrentRoom(null);
     setCurrentScreen('mood-select');
@@ -202,6 +221,7 @@ export const App: React.FC = () => {
         onGoHome={() => {
           if (currentScreen === 'chat') {
             if (confirm("Leaving will end your anonymous conversation with this person. Continue?")) {
+              chatService.clearActiveRoomStorage();
               chatService.leaveChat();
               setCurrentScreen('welcome');
               setCurrentRoom(null);
