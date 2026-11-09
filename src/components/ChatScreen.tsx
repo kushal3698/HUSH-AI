@@ -79,7 +79,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   onOpenVip,
   onRewind,
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem(`hush_messages_${room.id}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        } catch {}
+      }
+    }
+    return [];
+  });
   const [inputText, setInputText] = useState('');
   const [isStrangerTyping, setIsStrangerTyping] = useState(false);
   const [isChatEnded, setIsChatEnded] = useState(false);
@@ -87,11 +98,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [translations, setTranslations] = useState<Record<string, string>>({});
   
   // Media & Call Threshold States
-  const [progress, setProgress] = useState<ConversationProgress>({
-    myMessageCount: 0,
-    strangerMessageCount: 0,
-    thresholdRequired: 10,
-    mediaUnlocked: false
+  const [progress, setProgress] = useState<ConversationProgress>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem(`hush_progress_${room.id}`);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {}
+      }
+    }
+    return (
+      room.progress || {
+        myMessageCount: 0,
+        strangerMessageCount: 0,
+        thresholdRequired: 10,
+        mediaUnlocked: false
+      }
+    );
   });
   const [unlockedCelebration, setUnlockedCelebration] = useState(false);
   const [isLockedModalOpen, setIsLockedModalOpen] = useState(false);
@@ -154,6 +177,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     scrollToBottom();
   }, [messages, isStrangerTyping, showRescue]);
 
+  // Persist messages to sessionStorage so browser refresh retains full chat
+  useEffect(() => {
+    if (typeof window !== 'undefined' && messages.length > 0) {
+      sessionStorage.setItem(`hush_messages_${room.id}`, JSON.stringify(messages));
+    }
+  }, [messages, room.id]);
+
+  // Persist conversation threshold progress to sessionStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(`hush_progress_${room.id}`, JSON.stringify(progress));
+    }
+  }, [progress, room.id]);
+
   // Conversation Rescue Timer: 25s of inactivity triggers a gentle rescue prompt
   useEffect(() => {
     if (isChatEnded) return;
@@ -182,7 +219,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       text: `Connected with a real person: ${room.strangerAlias} (${room.moodId}). Say hi! 👋`,
       timestamp: Date.now()
     };
-    setMessages([welcomeMsg]);
+
+    // Restore saved messages on refresh, or initialize welcome
+    const saved = typeof window !== 'undefined' ? sessionStorage.getItem(`hush_messages_${room.id}`) : null;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setMessages(parsed);
+        } else {
+          setMessages([welcomeMsg]);
+        }
+      } catch {
+        setMessages([welcomeMsg]);
+      }
+    } else {
+      setMessages([welcomeMsg]);
+    }
 
     // Real incoming messages
     chatService.onMessage((newMsg) => {
@@ -1001,6 +1054,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   };
 
   const handleLeaveConversation = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(`hush_messages_${room.id}`);
+      sessionStorage.removeItem(`hush_progress_${room.id}`);
+      sessionStorage.removeItem('hush_active_room');
+    }
+    chatService.clearActiveRoomStorage();
     if (room.reconnectCode) {
       chatService.setLastSkippedPartner({
         alias: room.strangerAlias,
@@ -1185,6 +1244,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           {/* Next Stranger Button */}
           <button
             onClick={() => {
+              if (typeof window !== 'undefined') {
+                sessionStorage.removeItem(`hush_messages_${room.id}`);
+                sessionStorage.removeItem(`hush_progress_${room.id}`);
+                sessionStorage.removeItem('hush_active_room');
+              }
+              chatService.clearActiveRoomStorage();
               if (room.reconnectCode) {
                 chatService.setLastSkippedPartner({
                   alias: room.strangerAlias,
@@ -1216,7 +1281,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             </button>
           ) : (
             <button
-              onClick={onNextPerson}
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  sessionStorage.removeItem(`hush_messages_${room.id}`);
+                  sessionStorage.removeItem(`hush_progress_${room.id}`);
+                  sessionStorage.removeItem('hush_active_room');
+                }
+                chatService.clearActiveRoomStorage();
+                onNextPerson();
+              }}
               className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow flex items-center space-x-1 transition-all"
             >
               <span>New</span>
