@@ -118,6 +118,7 @@ export interface ChatRoom {
   strangerGender?: string;
   reconnectCode?: string;
   strangerIsVip?: boolean;
+  progress?: ConversationProgress;
 }
 
 export interface VaultConnection {
