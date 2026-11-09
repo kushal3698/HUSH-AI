@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  X, Crown, ArrowRight, ShieldCheck, Check, Copy, Share2, 
-  Sparkles, RefreshCw, Smartphone
+  X, Crown, ShieldCheck, Check, Copy, Share2, 
+  Sparkles, RefreshCw, Smartphone, Send, AlertCircle, Lock
 } from 'lucide-react';
 import { chatService } from '../services/chatService';
 import { VipPlan } from '../types';
@@ -13,6 +13,18 @@ interface VipUpgradeModalProps {
 }
 
 const DEFAULT_UPI_ID = '9618060329@ybl';
+const OWNER_PHONE = '9618060329';
+
+// Valid strict activation codes (controlled by site owner)
+const VALID_ACTIVATION_CODES = [
+  '9618060329',
+  'VIP9618',
+  'HUSH9618',
+  'VIP7DAY',
+  'VIP30DAY',
+  'VIPLIFE',
+  'HUSHVIP2026'
+];
 
 const VIP_PLANS: VipPlan[] = [
   {
@@ -52,8 +64,11 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
 }) => {
   const [selectedPlan, setSelectedPlan] = useState<string>('monthly');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [utrNumber, setUtrNumber] = useState('');
+  const [activationCode, setActivationCode] = useState('');
   const [verifyingPayment, setVerifyingPayment] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState<string | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
   const [referralCount, setReferralCount] = useState<number>(0);
 
   const isVip = chatService.isVip();
@@ -62,6 +77,7 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setReferralCount(chatService.getReferralCount());
+      setVerificationError(null);
     }
   }, [isOpen]);
 
@@ -86,6 +102,55 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
+  // Open WhatsApp to send screenshot and UTR to owner
+  const handleSendProofOnWhatsApp = () => {
+    const cleanUtr = utrNumber.trim() || 'NOT_ENTERED';
+    const message = encodeURIComponent(
+      `Hello! I paid ${currentPlan.price} on PhonePe for HUSH VIP (${currentPlan.name}).\n` +
+      `• UTR / UPI Ref: ${cleanUtr}\n` +
+      `• User ID: ${session.userId}\n` +
+      `Please verify and send my VIP Activation Code!`
+    );
+    window.open(`https://api.whatsapp.com/send?phone=91${OWNER_PHONE}&text=${message}`, '_blank');
+  };
+
+  // Strict Activation Verification
+  const handleStrictActivation = () => {
+    setVerificationError(null);
+    const cleanedCode = activationCode.trim().toUpperCase();
+
+    if (!cleanedCode) {
+      setVerificationError('Please enter your VIP Activation Code received on WhatsApp after payment.');
+      return;
+    }
+
+    setVerifyingPayment(true);
+
+    setTimeout(() => {
+      setVerifyingPayment(false);
+
+      const isValidCode = VALID_ACTIVATION_CODES.map(c => c.toUpperCase()).includes(cleanedCode);
+
+      if (!isValidCode) {
+        setVerificationError(
+          '❌ Invalid Activation Code! Please send your payment screenshot on WhatsApp to +91 9618060329 to receive your code.'
+        );
+        return;
+      }
+
+      // Valid Code -> Unlock VIP
+      const generatedPayId = `VIP_${cleanedCode}_${Date.now().toString(36).toUpperCase()}`;
+      setPaymentSuccess(generatedPayId);
+      chatService.setVip(true, currentPlan.name);
+      onVipChanged?.();
+
+      setTimeout(() => {
+        setPaymentSuccess(null);
+        onClose();
+      }, 2000);
+    }, 1000);
+  };
+
   const handleSimulateTestReferral = () => {
     const count = chatService.incrementReferralCount(1);
     setReferralCount(count);
@@ -97,22 +162,6 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
         onClose();
       }, 2500);
     }
-  };
-
-  // Instant Verification and VIP Activation
-  const handleConfirmPaid = () => {
-    setVerifyingPayment(true);
-    setTimeout(() => {
-      setVerifyingPayment(false);
-      const generatedPayId = `PAY_${Date.now().toString(36).toUpperCase()}`;
-      setPaymentSuccess(generatedPayId);
-      chatService.setVip(true, currentPlan.name);
-      onVipChanged?.();
-      setTimeout(() => {
-        setPaymentSuccess(null);
-        onClose();
-      }, 2000);
-    }, 1200);
   };
 
   const handleToggleDowngrade = () => {
@@ -168,11 +217,11 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
         </div>
 
         {/* Modal Body - Roomy & Uncluttered */}
-        <div className="p-6 sm:p-8 space-y-7 max-h-[75vh] overflow-y-auto">
+        <div className="p-6 sm:p-8 space-y-7 max-h-[75vh] overflow-y-auto text-left">
           {/* Payment Success Notification */}
           {paymentSuccess && (
             <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-center text-sm shadow-xl animate-bounce space-y-1">
-              <p>🎉 VIP Unlocked Successfully!</p>
+              <p>🎉 VIP Verified & Unlocked Successfully!</p>
               <p className="text-xs font-mono opacity-90">ID: {paymentSuccess}</p>
             </div>
           )}
@@ -210,14 +259,14 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
             </div>
           </div>
 
-          {/* 2. ONLY THE CLEAN QR CODE - EXACTLY AS REQUESTED */}
+          {/* 2. ONLY THE CLEAN QR CODE */}
           <div className="p-6 rounded-3xl bg-black/60 border border-purple-500/30 flex flex-col items-center text-center space-y-5 shadow-2xl">
             <div className="space-y-1">
               <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
                 2. Scan to Pay {currentPlan.price}
               </span>
               <p className="text-[11px] text-slate-400">
-                Open any UPI app on your phone to scan
+                Scan with PhonePe, Google Pay, or Paytm
               </p>
             </div>
 
@@ -241,30 +290,89 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
               <Smartphone className="w-4 h-4 text-purple-300" />
               <span>Browsing on phone? Tap to Pay</span>
             </a>
-
-            {/* Action Button: I Have Paid */}
-            <button
-              type="button"
-              onClick={handleConfirmPaid}
-              disabled={verifyingPayment}
-              className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-sm uppercase tracking-wider shadow-xl shadow-emerald-500/25 flex items-center justify-center space-x-2 transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
-            >
-              {verifyingPayment ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Activating VIP...</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-5 h-5 text-slate-950" />
-                  <span>I Have Paid • Activate VIP Now</span>
-                  <ArrowRight className="w-4 h-4 text-slate-950" />
-                </>
-              )}
-            </button>
           </div>
 
-          {/* 3. FREE VIP OPTION - 10 REFERRALS */}
+          {/* 3. STRICT PAYMENT VERIFICATION (No Free Click Bypass) */}
+          <div className="p-5 rounded-3xl bg-gradient-to-br from-indigo-950/60 via-slate-900 to-purple-950/60 border border-amber-500/40 space-y-4">
+            <div className="flex items-center space-x-2">
+              <Lock className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-bold text-white uppercase tracking-wider">
+                3. Strict Payment Verification:
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              To prevent fraudulent activation, send your payment screenshot on WhatsApp to receive your official <strong className="text-amber-300">VIP Activation Code</strong>.
+            </p>
+
+            {/* Step A: UTR Input & WhatsApp Proof Button */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-slate-300 block">
+                Step A: Enter 12-Digit UTR / UPI Ref from Receipt:
+              </label>
+              <input
+                type="text"
+                maxLength={16}
+                value={utrNumber}
+                onChange={(e) => setUtrNumber(e.target.value)}
+                placeholder="e.g. 431289562143"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white font-mono text-xs placeholder:text-slate-500 focus:outline-none focus:border-purple-400"
+              />
+
+              <button
+                type="button"
+                onClick={handleSendProofOnWhatsApp}
+                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center space-x-2 shadow transition-colors"
+              >
+                <Send className="w-4 h-4" />
+                <span>Send Screenshot on WhatsApp (+91 9618060329)</span>
+              </button>
+            </div>
+
+            {/* Step B: Activation Code Input */}
+            <div className="space-y-2 pt-2 border-t border-white/10">
+              <label className="text-[11px] font-semibold text-slate-300 block">
+                Step B: Enter VIP Activation Code:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={activationCode}
+                  onChange={(e) => {
+                    setActivationCode(e.target.value);
+                    setVerificationError(null);
+                  }}
+                  placeholder="Enter Code received on WhatsApp"
+                  className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-amber-300 font-mono font-bold text-xs uppercase placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
+                />
+                <button
+                  type="button"
+                  onClick={handleStrictActivation}
+                  disabled={verifyingPayment}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow flex items-center space-x-1.5 transition-all disabled:opacity-50"
+                >
+                  {verifyingPayment ? (
+                    <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4 text-slate-950" />
+                      <span>Unlock</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Error Message */}
+              {verificationError && (
+                <div className="p-3 rounded-xl bg-rose-950/70 border border-rose-500/50 text-rose-200 text-[11px] flex items-start space-x-2 animate-shake">
+                  <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+                  <span>{verificationError}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 4. FREE VIP OPTION - 10 REFERRALS */}
           <div className="p-5 rounded-3xl bg-slate-900/80 border border-indigo-500/30 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
