@@ -54,6 +54,7 @@ export interface ChatMessage {
   gameData?: MiniGameData;
   media?: MediaAttachment;
   status?: 'sent' | 'delivered' | 'read';
+  hasSensitiveData?: boolean;
 }
 
 export interface ConversationProgress {
