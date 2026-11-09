@@ -3,6 +3,7 @@ import {
   X, Crown, ShieldCheck, Check, Copy, Share2, 
   Sparkles, RefreshCw, Smartphone, Send, AlertCircle, Lock
 } from 'lucide-react';
+import phonepeQrImg from '../assets/phonepe_qr.png';
 import { chatService } from '../services/chatService';
 import { VipPlan } from '../types';
 
@@ -133,7 +134,7 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
 
       if (!isValidCode) {
         setVerificationError(
-          '❌ Invalid Activation Code! Please send your payment screenshot on WhatsApp to +91 9618060329 to receive your code.'
+          '❌ Invalid Activation Code! Please send your payment screenshot on WhatsApp to receive your official code.'
         );
         return;
       }
@@ -158,7 +159,6 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
 
   const upiAmount = currentPlan.amountInPaise / 100;
   const upiUri = `upi://pay?pa=${encodeURIComponent(DEFAULT_UPI_ID)}&pn=HUSH%20AI%20VIP&am=${upiAmount}&cu=INR&tn=VIP%20Pass%20${encodeURIComponent(currentPlan.name)}`;
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(upiUri)}&bgcolor=ffffff&color=0d1021&margin=12`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md animate-fade-in perspective-1000 overflow-y-auto">
@@ -258,13 +258,13 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
             </div>
 
             {/* Crisp Pure White QR Code Box with Caption */}
-            <div className="p-4 sm:p-5 rounded-3xl bg-white shadow-2xl flex flex-col items-center justify-center space-y-2 border-2 border-white/20">
+            <div className="p-3 sm:p-4 rounded-3xl bg-white shadow-2xl flex flex-col items-center justify-center space-y-2 border-2 border-white/20">
               <img 
-                src={qrCodeUrl} 
-                alt={`QR code for ${currentPlan.price}`} 
-                className="w-48 h-48 sm:w-56 sm:h-56 object-contain rounded-xl"
+                src={phonepeQrImg} 
+                alt="Scan with PhonePe or GPay" 
+                className="w-56 h-56 sm:w-64 sm:h-64 object-contain rounded-2xl shadow-inner"
               />
-              <span className="text-[10px] sm:text-[11px] font-black tracking-widest text-slate-900 uppercase pt-1">
+              <span className="text-[11px] sm:text-xs font-black tracking-widest text-slate-900 uppercase pt-1">
                 SCAN WITH PHONEPE / GPAY
               </span>
             </div>
@@ -312,7 +312,7 @@ export const VipUpgradeModal: React.FC<VipUpgradeModalProps> = ({
                 className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center space-x-2 shadow transition-colors"
               >
                 <Send className="w-4 h-4" />
-                <span>Send Screenshot on WhatsApp (+91 9618060329)</span>
+                <span>Send Screenshot & UTR on WhatsApp</span>
               </button>
             </div>
 
