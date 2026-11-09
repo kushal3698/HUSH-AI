@@ -28,6 +28,9 @@ const activeRooms = {};
 // socketToRoom: Map<socket, roomId>
 const socketToRoom = new Map();
 
+// referralStore: Map<referrerUserId, Set<visitorUserId>>
+const referralStore = new Map();
+
 function send(socket, data) {
   if (socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(data));
@@ -269,6 +272,7 @@ wss.on('connection', (ws) => {
 
       switch (data.type) {
         case 'JOIN_QUEUE': {
+          ws.userId = data.userId;
           // Remove if already in queue or existing room
           leaveAnyRoom(ws);
           waitingQueue = waitingQueue.filter(entry => entry.socket !== ws);
@@ -291,6 +295,43 @@ wss.on('connection', (ws) => {
           console.log(`[QUEUE JOIN] ${data.alias}${data.isVip ? ' [VIP]' : ''} waiting for "${data.mood}"${data.reconnectCode ? ` (Code: ${data.reconnectCode})` : ''}${data.targetGender ? ` [TargetGender: ${data.targetGender}]` : ''}${data.targetCity ? ` [TargetCity: ${data.targetCity}]` : ''}. Total waiting: ${waitingQueue.length}`);
           broadcastQueueStatus();
           tryMatchUsers();
+          break;
+        }
+
+        case 'IDENTIFY_USER': {
+          if (data.userId) {
+            ws.userId = data.userId;
+            const count = referralStore.get(data.userId)?.size || 0;
+            send(ws, {
+              type: 'REFERRAL_COUNT_UPDATED',
+              referralCount: count,
+              unlockedVip: count >= 10
+            });
+          }
+          break;
+        }
+
+        case 'REGISTER_REFERRAL': {
+          const { referrerId, visitorId } = data;
+          if (referrerId && visitorId && referrerId !== visitorId) {
+            if (!referralStore.has(referrerId)) {
+              referralStore.set(referrerId, new Set());
+            }
+            const set = referralStore.get(referrerId);
+            set.add(visitorId);
+            const count = set.size;
+            console.log(`[REFERRAL] User ${referrerId} referred ${visitorId}. Total: ${count}`);
+
+            for (const client of wss.clients) {
+              if (client.readyState === WebSocket.OPEN && client.userId === referrerId) {
+                send(client, {
+                  type: 'REFERRAL_COUNT_UPDATED',
+                  referralCount: count,
+                  unlockedVip: count >= 10
+                });
+              }
+            }
+          }
           break;
         }
 
