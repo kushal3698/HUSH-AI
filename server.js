@@ -111,6 +111,7 @@ function tryMatchUsers() {
           strangerGender: userB.gender,
           reconnectCode: userA.reconnectCode,
           isDirectReconnect: true,
+          strangerIsVip: Boolean(userB.isVip),
           progress: initialProgress
         });
 
@@ -125,6 +126,7 @@ function tryMatchUsers() {
           strangerGender: userA.gender,
           reconnectCode: userA.reconnectCode,
           isDirectReconnect: true,
+          strangerIsVip: Boolean(userA.isVip),
           progress: initialProgress
         });
 
@@ -133,6 +135,9 @@ function tryMatchUsers() {
       }
     }
   }
+
+  // Prioritize VIP users for faster, prioritized matching
+  waitingQueue.sort((a, b) => (b.isVip ? 1 : 0) - (a.isVip ? 1 : 0));
 
   // 1. Try to find pairs with the exact same mood
   for (let i = 0; i < waitingQueue.length; i++) {
@@ -146,6 +151,26 @@ function tryMatchUsers() {
 
       // Disallow matching identical socket connections or users waiting on reconnect codes
       if (userA.socket === userB.socket || userB.reconnectCode) continue;
+
+      // Check VIP Gender filters
+      if (userA.isVip && userA.targetGender && userA.targetGender !== 'any') {
+        const bGender = String(userB.gender || '').toLowerCase();
+        if (!bGender.includes(userA.targetGender)) continue;
+      }
+      if (userB.isVip && userB.targetGender && userB.targetGender !== 'any') {
+        const aGender = String(userA.gender || '').toLowerCase();
+        if (!aGender.includes(userB.targetGender)) continue;
+      }
+
+      // Check VIP City filters
+      if (userA.isVip && userA.targetCity) {
+        const bCity = String(userB.city || '').toLowerCase();
+        if (!bCity.includes(userA.targetCity)) continue;
+      }
+      if (userB.isVip && userB.targetCity) {
+        const aCity = String(userA.city || '').toLowerCase();
+        if (!aCity.includes(userB.targetCity)) continue;
+      }
 
       // Match if same mood OR either selected 'general'
       const sameMood = userA.mood === userB.mood;
@@ -168,7 +193,8 @@ function tryMatchUsers() {
             messageCount: 0,
             city: userA.city,
             age: userA.age,
-            gender: userA.gender
+            gender: userA.gender,
+            isVip: Boolean(userA.isVip)
           },
           userB: { 
             socket: userB.socket, 
@@ -177,7 +203,8 @@ function tryMatchUsers() {
             messageCount: 0,
             city: userB.city,
             age: userB.age,
-            gender: userB.gender
+            gender: userB.gender,
+            isVip: Boolean(userB.isVip)
           },
           processedMessageIds: new Set(),
           mediaUnlocked: false,
@@ -189,7 +216,7 @@ function tryMatchUsers() {
         socketToRoom.set(userA.socket, roomId);
         socketToRoom.set(userB.socket, roomId);
 
-        console.log(`[MATCH CREATED] Room ${roomId} (Code: ${roomReconnectCode}): ${userA.alias} <---> ${userB.alias} (${userA.mood})`);
+        console.log(`[MATCH CREATED] Room ${roomId} (Code: ${roomReconnectCode}): ${userA.alias}${userA.isVip ? ' (VIP)' : ''} <---> ${userB.alias}${userB.isVip ? ' (VIP)' : ''} (${userA.mood})`);
 
         const initialProgress = {
           myMessageCount: 0,
@@ -208,6 +235,7 @@ function tryMatchUsers() {
           strangerAge: userB.age,
           strangerGender: userB.gender,
           reconnectCode: roomReconnectCode,
+          strangerIsVip: Boolean(userB.isVip),
           progress: initialProgress
         });
 
@@ -221,6 +249,7 @@ function tryMatchUsers() {
           strangerAge: userA.age,
           strangerGender: userA.gender,
           reconnectCode: roomReconnectCode,
+          strangerIsVip: Boolean(userA.isVip),
           progress: initialProgress
         });
 
@@ -252,11 +281,14 @@ wss.on('connection', (ws) => {
             city: data.city || null,
             age: data.age || null,
             gender: data.gender || null,
+            isVip: Boolean(data.isVip),
+            targetGender: data.targetGender ? String(data.targetGender).toLowerCase() : null,
+            targetCity: data.targetCity ? String(data.targetCity).trim().toLowerCase() : null,
             reconnectCode: data.reconnectCode ? String(data.reconnectCode).trim().toUpperCase() : null,
             joinedAt: Date.now()
           });
 
-          console.log(`[QUEUE JOIN] ${data.alias} waiting for "${data.mood}"${data.reconnectCode ? ` (Code: ${data.reconnectCode})` : ''}. Total waiting: ${waitingQueue.length}`);
+          console.log(`[QUEUE JOIN] ${data.alias}${data.isVip ? ' [VIP]' : ''} waiting for "${data.mood}"${data.reconnectCode ? ` (Code: ${data.reconnectCode})` : ''}${data.targetGender ? ` [TargetGender: ${data.targetGender}]` : ''}${data.targetCity ? ` [TargetCity: ${data.targetCity}]` : ''}. Total waiting: ${waitingQueue.length}`);
           broadcastQueueStatus();
           tryMatchUsers();
           break;
