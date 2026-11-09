@@ -138,7 +138,11 @@ class RealtimeChatService {
           strangerAlias: data.strangerAlias,
           strangerMood: data.mood,
           createdAt: Date.now(),
-          status: 'active'
+          status: 'active',
+          strangerCity: data.strangerCity,
+          strangerAge: data.strangerAge,
+          strangerGender: data.strangerGender,
+          reconnectCode: data.reconnectCode
         };
         this.currentRoom = room;
 
@@ -279,13 +283,18 @@ class RealtimeChatService {
         const currentMood = session.selectedMood;
         if (currentMood === data.mood || currentMood === 'general' || data.mood === 'general') {
           const roomId = `room_tab_${Date.now()}`;
+          const generatedCode = data.reconnectCode || `HUSH-${Math.floor(100000 + Math.random() * 900000)}`;
           this.broadcastChannel?.postMessage({
             type: 'TAB_MATCH_CONFIRMED',
             roomId,
             targetUserId: data.senderId,
             senderId: session.userId,
             senderAlias: session.anonymousAlias,
-            mood: currentMood
+            mood: currentMood,
+            city: session.city,
+            age: session.age,
+            gender: session.gender,
+            reconnectCode: generatedCode
           });
 
           const room: ChatRoom = {
@@ -295,7 +304,11 @@ class RealtimeChatService {
             strangerAlias: data.senderAlias,
             strangerMood: data.mood,
             createdAt: Date.now(),
-            status: 'active'
+            status: 'active',
+            strangerCity: data.city,
+            strangerAge: data.age,
+            strangerGender: data.gender,
+            reconnectCode: generatedCode
           };
           this.currentRoom = room;
           this.onMatchedListener?.(room);
@@ -309,7 +322,11 @@ class RealtimeChatService {
         strangerAlias: data.senderAlias,
         strangerMood: data.mood,
         createdAt: Date.now(),
-        status: 'active'
+        status: 'active',
+        strangerCity: data.city,
+        strangerAge: data.age,
+        strangerGender: data.gender,
+        reconnectCode: data.reconnectCode
       };
       this.currentRoom = room;
       this.onMatchedListener?.(room);
@@ -384,10 +401,20 @@ class RealtimeChatService {
   }
 
   getUserSession(): UserSession {
+    let savedPersona: { city?: string; age?: string | number; gender?: string } = {};
+    try {
+      const pRaw = localStorage.getItem('hush_persona');
+      if (pRaw) savedPersona = JSON.parse(pRaw);
+    } catch {}
+
     const raw = sessionStorage.getItem(SESSION_KEY);
     if (raw) {
       try {
-        return JSON.parse(raw);
+        const parsed: UserSession = JSON.parse(raw);
+        if (!parsed.city && savedPersona.city) parsed.city = savedPersona.city;
+        if (!parsed.age && savedPersona.age) parsed.age = savedPersona.age;
+        if (!parsed.gender && savedPersona.gender) parsed.gender = savedPersona.gender;
+        return parsed;
       } catch {}
     }
 
@@ -400,11 +427,30 @@ class RealtimeChatService {
       selectedInterests: [],
       blockedUserIds: this.getBlockedList(),
       totalChatsCount: 0,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      city: savedPersona.city || '',
+      age: savedPersona.age || '',
+      gender: savedPersona.gender || ''
     };
 
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(newSession));
     return newSession;
+  }
+
+  updatePersona(persona: { city?: string; age?: string | number; gender?: string }): UserSession {
+    const session = this.getUserSession();
+    if (persona.city !== undefined) session.city = persona.city;
+    if (persona.age !== undefined) session.age = persona.age;
+    if (persona.gender !== undefined) session.gender = persona.gender;
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    try {
+      localStorage.setItem('hush_persona', JSON.stringify({
+        city: session.city,
+        age: session.age,
+        gender: session.gender
+      }));
+    } catch {}
+    return session;
   }
 
   getBlockedList(): string[] {
@@ -453,7 +499,13 @@ class RealtimeChatService {
   joinQueue(
     mood: MoodId, 
     onMatched: MatchCallback, 
-    onQueueUpdate?: QueueUpdateCallback
+    onQueueUpdate?: QueueUpdateCallback,
+    options?: {
+      city?: string;
+      age?: string | number;
+      gender?: string;
+      reconnectCode?: string;
+    }
   ) {
     this.onMatchedListener = onMatched;
     this.onQueueUpdateListener = onQueueUpdate || null;
@@ -461,24 +513,61 @@ class RealtimeChatService {
 
     const session = this.getUserSession();
     session.selectedMood = mood;
+    if (options?.city !== undefined) session.city = options.city;
+    if (options?.age !== undefined) session.age = options.age;
+    if (options?.gender !== undefined) session.gender = options.gender;
+
+    try {
+      localStorage.setItem('hush_persona', JSON.stringify({
+        city: session.city,
+        age: session.age,
+        gender: session.gender
+      }));
+    } catch {}
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
 
+    const payload = {
+      type: 'JOIN_QUEUE',
+      userId: session.userId,
+      alias: session.anonymousAlias,
+      mood,
+      city: session.city,
+      age: session.age,
+      gender: session.gender,
+      reconnectCode: options?.reconnectCode ? options.reconnectCode.trim().toUpperCase() : undefined
+    };
+
     if (this.socket?.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify({
-        type: 'JOIN_QUEUE',
-        userId: session.userId,
-        alias: session.anonymousAlias,
-        mood
-      }));
+      this.socket.send(JSON.stringify(payload));
     } else {
       this.connectWebSocket();
       this.broadcastChannel?.postMessage({
         type: 'TAB_JOIN_QUEUE',
         senderId: session.userId,
         senderAlias: session.anonymousAlias,
-        mood
+        mood,
+        city: session.city,
+        age: session.age,
+        gender: session.gender,
+        reconnectCode: options?.reconnectCode ? options.reconnectCode.trim().toUpperCase() : undefined
       });
     }
+  }
+
+  reconnectWithCode(
+    reconnectCode: string,
+    onMatched: MatchCallback,
+    onQueueUpdate?: QueueUpdateCallback,
+    options?: {
+      city?: string;
+      age?: string | number;
+      gender?: string;
+    }
+  ) {
+    this.joinQueue('general', onMatched, onQueueUpdate, {
+      ...options,
+      reconnectCode: reconnectCode.trim().toUpperCase()
+    });
   }
 
   cancelQueue() {
