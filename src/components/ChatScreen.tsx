@@ -32,7 +32,8 @@ import {
   Users,
   Link2,
   Crown,
-  RotateCcw
+  RotateCcw,
+  MoreVertical
 } from 'lucide-react';
 import { 
   ChatMessage, 
@@ -116,6 +117,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [lastActivity, setLastActivity] = useState(Date.now());
   const [isConnectionSaved, setIsConnectionSaved] = useState(false);
   const [saveToast, setSaveToast] = useState<string | null>(null);
+  const [showTopMenu, setShowTopMenu] = useState(false);
 
   // Mutual Reveal states
   const [isRevealModalOpen, setIsRevealModalOpen] = useState(false);
@@ -326,7 +328,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         if (!prev.mediaUnlocked && newProg.mediaUnlocked) {
           setUnlockedCelebration(true);
           setSaveToast('🎉 Mutual threshold reached! Media sharing, voice notes, and calls are now unlocked!');
-          setTimeout(() => setUnlockedCelebration(false), 8000);
+          setTimeout(() => {
+            setSaveToast(null);
+            setUnlockedCelebration(false);
+          }, 5500);
         }
         return newProg;
       });
@@ -335,12 +340,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     // Backend security rejection notifications
     chatService.onMediaRejected((err) => {
       setSaveToast(`🔒 ${err}`);
+      setTimeout(() => setSaveToast(null), 5000);
       setAttemptedLockedFeature('media');
       setIsLockedModalOpen(true);
     });
 
     chatService.onCallRejected((err) => {
       setSaveToast(`🔒 ${err}`);
+      setTimeout(() => setSaveToast(null), 5000);
       setIsCallModalOpen(false);
       setAttemptedLockedFeature('call_audio');
       setIsLockedModalOpen(true);
@@ -910,66 +917,78 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] max-w-3xl mx-auto w-full bg-[#080c18] sm:border-x sm:border-slate-800/80 relative">
-      {/* Toast Banner for Vault Save */}
+      {/* Toast Banner for Vault Save & Threshold - Auto-dismisses within 5-6s */}
       {saveToast && (
-        <div className="absolute top-14 left-1/2 transform -translate-x-1/2 z-40 px-4 py-2 rounded-2xl bg-indigo-950/95 border border-indigo-400 text-xs text-white shadow-2xl backdrop-blur-md flex items-center space-x-2 animate-fade-in">
-          <BookmarkCheck className="w-4 h-4 text-emerald-400" />
-          <span>{saveToast}</span>
+        <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-indigo-950/95 border border-indigo-400 text-xs text-white shadow-2xl backdrop-blur-md flex items-center space-x-2.5 animate-fade-in max-w-md w-[92%] sm:w-auto">
+          <BookmarkCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          <span className="flex-1 font-medium">{saveToast}</span>
+          <button 
+            onClick={() => setSaveToast(null)} 
+            className="text-slate-400 hover:text-white p-1 rounded-lg transition-colors ml-1"
+            title="Dismiss"
+          >
+            ✕
+          </button>
         </div>
       )}
 
-      {/* Top Participant & Action Bar */}
-      <div className="glass-panel border-b border-slate-800/80 px-4 py-2.5 flex items-center justify-between z-10">
+      {/* Top Participant & Action Bar - Clean, Clear & Uncluttered */}
+      <div className="glass-panel border-b border-slate-800/80 px-4 py-2.5 flex items-center justify-between z-20 relative">
+        {/* Left: Stranger Identity & Persona */}
         <div className="flex items-center space-x-3">
-          <div className="relative">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-700 to-indigo-700 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-purple-900/30">
+          <div className="relative flex-shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-700 via-indigo-700 to-cyan-500 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-purple-900/30">
               {room.strangerAlias.substring(0, 1)}
             </div>
             <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#080c18]"></span>
           </div>
 
-          <div>
+          <div className="text-left">
             <div className="flex items-center space-x-2">
               <h2 className="font-bold text-white text-sm tracking-wide">
                 {room.strangerAlias}
               </h2>
-              <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-purple-950/80 text-purple-300 border border-purple-800/40">
+              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800/50">
                 {room.moodId}
               </span>
               {room.strangerIsVip && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/50 flex items-center space-x-1 shadow-sm">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/50 flex items-center space-x-1 shadow-sm">
                   <Crown className="w-3 h-3 text-amber-400 fill-current" />
                   <span>VIP</span>
                 </span>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+
+            {/* Persona Badges: City • Age • Gender */}
+            <div className="flex items-center space-x-1.5 text-xs text-slate-300 mt-0.5">
               {room.strangerCity && (
-                <span className="inline-flex items-center space-x-0.5 text-[10px] font-semibold px-2 py-0.2 rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-800/40">
-                  <MapPin className="w-2.5 h-2.5 inline" />
+                <span className="text-cyan-300 font-medium inline-flex items-center space-x-0.5">
+                  <MapPin className="w-3 h-3 text-cyan-400 inline" />
                   <span>{room.strangerCity}</span>
                 </span>
               )}
+              {room.strangerCity && room.strangerAge && <span>•</span>}
               {room.strangerAge && (
-                <span className="inline-flex items-center space-x-0.5 text-[10px] font-semibold px-2 py-0.2 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-800/40">
-                  <Calendar className="w-2.5 h-2.5 inline" />
+                <span className="text-indigo-300 font-medium inline-flex items-center space-x-0.5">
+                  <Calendar className="w-3 h-3 text-indigo-400 inline" />
                   <span>{room.strangerAge} yrs</span>
                 </span>
               )}
+              {(room.strangerCity || room.strangerAge) && room.strangerGender && <span>•</span>}
               {room.strangerGender && (
-                <span className="inline-flex items-center space-x-0.5 text-[10px] font-semibold px-2 py-0.2 rounded-full bg-pink-950/80 text-pink-300 border border-pink-800/40">
-                  <Users className="w-2.5 h-2.5 inline" />
+                <span className="text-pink-300 font-medium inline-flex items-center space-x-0.5">
+                  <Users className="w-3 h-3 text-pink-400 inline" />
                   <span>{room.strangerGender}</span>
                 </span>
               )}
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[11px] text-slate-400 hidden sm:inline">
                 {isChatEnded ? (
-                  <span className="text-rose-400">{endReason}</span>
+                  <span className="text-rose-400 ml-1">Left</span>
                 ) : isStrangerTyping ? (
-                  <span className="text-purple-300 animate-pulse font-medium">Stranger is typing...</span>
+                  <span className="text-purple-300 animate-pulse ml-1">typing...</span>
                 ) : (
-                  <span className="text-emerald-400 flex items-center space-x-1">
-                    <UserCheck className="w-3 h-3 inline" />
+                  <span className="text-emerald-400 ml-1 inline-flex items-center space-x-0.5">
+                    <UserCheck className="w-3 h-3 text-emerald-400 inline" />
                     <span>Connected</span>
                   </span>
                 )}
@@ -978,8 +997,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center space-x-1 sm:space-x-2">
+        {/* Right: Clean, Well-Spaced Action Controls */}
+        <div className="flex items-center space-x-1.5 sm:space-x-2">
           {/* Reconnect Code Button */}
           {room.reconnectCode && !isChatEnded && (
             <button
@@ -987,106 +1006,67 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 const origin = typeof window !== 'undefined' ? window.location.origin : 'https://hush-live-chat.vercel.app';
                 const link = `${origin}?reconnect=${room.reconnectCode}`;
                 navigator.clipboard.writeText(`Connect with me on HUSH AI: ${link} (Code: ${room.reconnectCode})`);
-                setSaveToast(`Copied! Reconnect code: ${room.reconnectCode}`);
-                setTimeout(() => setSaveToast(null), 3500);
+                setSaveToast(`Copied Reconnect Code: ${room.reconnectCode}`);
+                setTimeout(() => setSaveToast(null), 5000);
               }}
-              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-purple-500/40 bg-purple-950/60 hover:bg-purple-900/80 text-purple-300 text-xs font-mono font-bold flex items-center space-x-1 transition-all"
-              title="Copy Reconnect Code to chat again later"
+              className="px-2.5 py-1.5 rounded-xl border border-purple-500/40 bg-purple-950/70 hover:bg-purple-900 text-purple-200 text-xs font-mono font-bold flex items-center space-x-1.5 transition-all shadow-sm"
+              title="Copy Reconnect Code"
             >
               <Link2 className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="hidden sm:inline">{room.reconnectCode}</span>
-            </button>
-          )}
-          {/* Mutual Reveal Protocol */}
-          {!isChatEnded && (
-            <button
-              onClick={() => setIsRevealModalOpen(true)}
-              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-medium flex items-center space-x-1.5 transition-all ${
-                revealedStrangerProfile
-                  ? 'bg-gradient-to-r from-pink-950/80 to-purple-950/80 border-pink-500/50 text-pink-300'
-                  : isRevealEligible
-                  ? 'bg-gradient-to-r from-purple-900/60 to-indigo-900/60 border-purple-500/50 text-purple-300 hover:text-white animate-pulse'
-                  : 'bg-slate-800/60 text-slate-400 border-slate-700/60 hover:text-slate-300'
-              }`}
-              title={
-                revealedStrangerProfile
-                  ? 'Identities Revealed'
-                  : isRevealEligible
-                  ? 'Mutual Reveal Unlocked! (3+ msgs exchanged)'
-                  : `Mutual Reveal Locked (${messagesCount.me}/3 msgs sent)`
-              }
-            >
-              <HeartHandshake className="w-3.5 h-3.5 text-pink-400" />
-              <span className="hidden md:inline">
-                {revealedStrangerProfile ? 'Revealed' : 'Reveal Identity'}
-              </span>
-              {!revealedStrangerProfile && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-900/80 border border-slate-700">
-                  {isRevealEligible ? '🤝 Unlock' : `${Math.min(messagesCount.me, 3)}/3`}
-                </span>
-              )}
+              <span>{room.reconnectCode}</span>
+              <Copy className="w-3 h-3 text-purple-400 opacity-70 hover:opacity-100" />
             </button>
           )}
 
-          {/* Audio Call Button */}
-          {!isChatEnded && (
+          {/* Rewind if Chat Ended */}
+          {isChatEnded && onRewind && (
             <button
-              onClick={() => handleStartCall('audio')}
-              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold flex items-center space-x-1.5 transition-all ${
-                progress.mediaUnlocked
-                  ? 'bg-emerald-950/70 hover:bg-emerald-900/80 border-emerald-500/50 text-emerald-300 hover:text-white shadow-sm'
-                  : 'bg-slate-800/60 hover:bg-slate-800 text-slate-400 border-slate-700/60'
-              }`}
-              title={
-                progress.mediaUnlocked
-                  ? 'Start Encrypted Voice Call'
-                  : `Voice Call Locked (You: ${progress.myMessageCount}/10, Partner: ${progress.strangerMessageCount}/10)`
-              }
+              onClick={() => {
+                const last = chatService.getLastSkippedPartner();
+                if (last && onRewind) {
+                  onRewind(last.reconnectCode);
+                } else if (onOpenVip) {
+                  onOpenVip();
+                }
+              }}
+              className="px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center space-x-1 transition-all"
+              title="Rewind / Reconnect with previous partner"
             >
-              <Phone className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">Audio</span>
-              {!progress.mediaUnlocked && <Lock className="w-2.5 h-2.5 text-amber-400" />}
+              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Rewind</span>
             </button>
           )}
 
-          {/* Video Call Button */}
+          {/* Quick Call Controls */}
           {!isChatEnded && (
-            <button
-              onClick={() => handleStartCall('video')}
-              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-semibold flex items-center space-x-1.5 transition-all ${
-                progress.mediaUnlocked
-                  ? 'bg-purple-950/70 hover:bg-purple-900/80 border-purple-500/50 text-purple-300 hover:text-white shadow-sm'
-                  : 'bg-slate-800/60 hover:bg-slate-800 text-slate-400 border-slate-700/60'
-              }`}
-              title={
-                progress.mediaUnlocked
-                  ? 'Start Live Video Call'
-                  : `Video Call Locked (You: ${progress.myMessageCount}/10, Partner: ${progress.strangerMessageCount}/10)`
-              }
-            >
-              <VideoIcon className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">Video</span>
-              {!progress.mediaUnlocked && <Lock className="w-2.5 h-2.5 text-amber-400" />}
-            </button>
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => handleStartCall('audio')}
+                className={`p-2 rounded-xl border text-xs transition-colors ${
+                  progress.mediaUnlocked
+                    ? 'bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 border-emerald-500/50'
+                    : 'bg-slate-800/80 hover:bg-slate-700 text-slate-400 border-slate-700/60'
+                }`}
+                title={progress.mediaUnlocked ? 'Audio Call' : 'Audio Call Locked (10 msgs each required)'}
+              >
+                <Phone className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => handleStartCall('video')}
+                className={`p-2 rounded-xl border text-xs transition-colors ${
+                  progress.mediaUnlocked
+                    ? 'bg-purple-950/80 hover:bg-purple-900 text-purple-300 border-purple-500/50'
+                    : 'bg-slate-800/80 hover:bg-slate-700 text-slate-400 border-slate-700/60'
+                }`}
+                title={progress.mediaUnlocked ? 'Video Call' : 'Video Call Locked (10 msgs each required)'}
+              >
+                <VideoIcon className="w-4 h-4" />
+              </button>
+            </div>
           )}
 
-          {/* Save Connection / Vault Handshake */}
-          {!isChatEnded && (
-            <button
-              onClick={handleSaveConnection}
-              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-medium flex items-center space-x-1 transition-colors ${
-                isConnectionSaved
-                  ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300'
-                  : 'bg-slate-800/60 hover:bg-indigo-950/60 text-slate-300 hover:text-white border-slate-700/60'
-              }`}
-              title="Save connection anonymously to Vault"
-            >
-              <BookmarkCheck className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">{isConnectionSaved ? 'Saved' : 'Save Connection'}</span>
-            </button>
-          )}
-
-          {/* Next Stranger */}
+          {/* Next Stranger Button */}
           <button
             onClick={() => {
               if (room.reconnectCode) {
@@ -1101,70 +1081,90 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               chatService.leaveChat();
               onNextPerson();
             }}
-            className="px-2.5 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold flex items-center space-x-1.5 transition-colors"
-            title="Skip to next person"
+            className="px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 hover:text-white border border-indigo-500/40 text-xs font-bold flex items-center space-x-1 transition-all"
+            title="Next Person"
           >
             <RotateCw className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Next</span>
           </button>
 
-          {/* End Chat / Rewind if ended */}
+          {/* Leave Button */}
           {!isChatEnded ? (
             <button
               onClick={handleLeaveConversation}
-              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-slate-800/60 hover:bg-rose-950/60 text-slate-300 hover:text-rose-300 border border-slate-700/60 hover:border-rose-800 text-xs font-medium flex items-center space-x-1 transition-colors"
-              title="End conversation"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-rose-950 text-slate-300 hover:text-rose-200 border border-slate-700/60 hover:border-rose-700 text-xs font-semibold flex items-center space-x-1 transition-all"
+              title="Leave Chat"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Leave</span>
             </button>
           ) : (
-            <div className="flex items-center space-x-1.5">
-              <button
-                onClick={() => {
-                  const last = chatService.getLastSkippedPartner();
-                  if (last && onRewind) {
-                    onRewind(last.reconnectCode);
-                  } else if (onOpenVip) {
-                    onOpenVip();
-                  }
-                }}
-                className="px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold shadow transition-colors flex items-center space-x-1"
-                title="Rewind / Reconnect with last person"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden sm:inline">Rewind</span>
-              </button>
-              <button
-                onClick={onNextPerson}
-                className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow transition-colors flex items-center space-x-1"
-              >
-                <span>Find New</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            <button
+              onClick={onNextPerson}
+              className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow flex items-center space-x-1 transition-all"
+            >
+              <span>New</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
           )}
 
-          {/* Safety options */}
-          <button
-            onClick={onOpenReport}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors"
-            title="Report this user"
-          >
-            <Flag className="w-4 h-4" />
-          </button>
+          {/* More Options Dropdown for Secondary Tools */}
+          <div className="relative">
+            <button
+              onClick={() => setShowTopMenu(!showTopMenu)}
+              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              title="More Actions"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
 
-          <button
-            onClick={onOpenBlock}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-amber-400 hover:bg-amber-950/30 transition-colors"
-            title="Block this user"
-          >
-            <UserX className="w-4 h-4" />
-          </button>
+            {showTopMenu && (
+              <div 
+                className="absolute right-0 top-11 w-52 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl py-1.5 z-50 text-xs space-y-0.5 animate-scale-up"
+                onClick={() => setShowTopMenu(false)}
+              >
+                {!isChatEnded && (
+                  <button
+                    onClick={() => setIsRevealModalOpen(true)}
+                    className="w-full px-3.5 py-2 text-left hover:bg-purple-950/60 text-purple-200 flex items-center space-x-2"
+                  >
+                    <HeartHandshake className="w-4 h-4 text-pink-400" />
+                    <span>Reveal Identity ({Math.min(messagesCount.me, 3)}/3)</span>
+                  </button>
+                )}
+
+                {!isChatEnded && (
+                  <button
+                    onClick={handleSaveConnection}
+                    className="w-full px-3.5 py-2 text-left hover:bg-indigo-950/60 text-slate-200 flex items-center space-x-2"
+                  >
+                    <BookmarkCheck className="w-4 h-4 text-emerald-400" />
+                    <span>{isConnectionSaved ? 'Saved to Vault' : 'Save Connection'}</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={onOpenReport}
+                  className="w-full px-3.5 py-2 text-left hover:bg-rose-950/60 text-rose-300 flex items-center space-x-2"
+                >
+                  <Flag className="w-4 h-4 text-rose-400" />
+                  <span>Report User</span>
+                </button>
+
+                <button
+                  onClick={onOpenBlock}
+                  className="w-full px-3.5 py-2 text-left hover:bg-amber-950/60 text-amber-300 flex items-center space-x-2"
+                >
+                  <UserX className="w-4 h-4 text-amber-400" />
+                  <span>Block User</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Mutual Conversation Threshold Progress Banner */}
+      {/* Mutual Conversation Threshold Progress Banner - Compact & Clean */}
       {!isChatEnded && (
         <div className="px-4 py-2 bg-[#090e20] border-b border-slate-800/80">
           {!progress.mediaUnlocked ? (
@@ -1173,82 +1173,58 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 setAttemptedLockedFeature(null);
                 setIsLockedModalOpen(true);
               }}
-              className="w-full p-2.5 rounded-2xl bg-gradient-to-r from-purple-950/60 via-slate-900/90 to-indigo-950/60 border border-purple-500/30 hover:border-purple-500/60 cursor-pointer transition-all shadow-md space-y-2 group"
+              className="w-full p-2.5 rounded-2xl bg-gradient-to-r from-purple-950/50 via-slate-900 to-indigo-950/50 border border-purple-500/30 hover:border-purple-500/50 cursor-pointer transition-all shadow-sm space-y-1.5"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-1">
-                <div className="flex items-center space-x-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-300 flex items-center space-x-1.5">
                   <Lock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                  <span className="font-semibold text-slate-200">
-                    Build your connection: send 10 messages each to unlock media and calls.
-                  </span>
-                </div>
-                <span className="text-[11px] text-purple-300 font-mono font-bold bg-purple-950/80 px-2 py-0.5 rounded-full border border-purple-700/50 self-start sm:self-auto">
-                  You: {Math.min(progress.myMessageCount, 10)}/10 messages | Other person: {Math.min(progress.strangerMessageCount, 10)}/10 messages
+                  <span>Send 10 messages each to unlock media & calls</span>
+                </span>
+                <span className="text-[11px] font-mono text-purple-300 font-bold">
+                  You: {Math.min(progress.myMessageCount, 10)}/10 • Partner: {Math.min(progress.strangerMessageCount, 10)}/10
                 </span>
               </div>
 
-              {/* Dual Progress Bars */}
-              <div className="grid grid-cols-2 gap-3 text-[10px]">
-                <div className="space-y-1">
-                  <div className="flex justify-between text-slate-400">
-                    <span>You</span>
-                    <span className={progress.myMessageCount >= 10 ? 'text-emerald-400 font-bold' : 'text-purple-300'}>
-                      {Math.min(progress.myMessageCount, 10)}/10 {progress.myMessageCount >= 10 && '✓'}
-                    </span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-purple-600 to-indigo-500 transition-all duration-300 rounded-full"
-                      style={{ width: `${Math.min(progress.myMessageCount * 10, 100)}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-slate-400">
-                    <span>{room.strangerAlias}</span>
-                    <span className={progress.strangerMessageCount >= 10 ? 'text-emerald-400 font-bold' : 'text-cyan-300'}>
-                      {Math.min(progress.strangerMessageCount, 10)}/10 {progress.strangerMessageCount >= 10 && '✓'}
-                    </span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 transition-all duration-300 rounded-full"
-                      style={{ width: `${Math.min(progress.strangerMessageCount * 10, 100)}%` }}
-                    />
-                  </div>
-                </div>
+              {/* Clean Single Slim Dual Progress Bar */}
+              <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden flex">
+                <div 
+                  className="h-full bg-purple-500 transition-all duration-300"
+                  style={{ width: `${Math.min((progress.myMessageCount / 10) * 50, 50)}%` }}
+                />
+                <div 
+                  className="h-full bg-cyan-400 transition-all duration-300 ml-auto"
+                  style={{ width: `${Math.min((progress.strangerMessageCount / 10) * 50, 50)}%` }}
+                />
               </div>
             </div>
           ) : (
-            <div className="w-full px-3.5 py-2 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-teal-950/40 to-slate-900 border border-emerald-500/40 flex items-center justify-between text-xs text-emerald-300 shadow-sm animate-fade-in">
-              <div className="flex items-center space-x-2 font-medium">
-                <Unlock className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                <span>✨ Media & Calls Unlocked: Photos, videos, voice messages, audio and video calls are active!</span>
-              </div>
-              <span className="text-[10px] bg-emerald-900/70 px-2 py-0.5 rounded-full border border-emerald-700 text-emerald-200 font-semibold whitespace-nowrap">
-                10+ Exchanged
+            <div className="w-full px-3 py-1.5 rounded-xl bg-emerald-950/50 border border-emerald-500/30 flex items-center justify-between text-xs text-emerald-300 animate-fade-in">
+              <span className="flex items-center space-x-1.5">
+                <Unlock className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Media & Calls Unlocked!</span>
               </span>
+              <span className="text-[10px] font-semibold text-emerald-200">10+ Exchanged ✓</span>
             </div>
           )}
         </div>
       )}
 
-      {/* Unlocked Celebration Banner */}
+      {/* Unlocked Celebration Banner - Auto-dismisses within 5-6s */}
       {unlockedCelebration && (
-        <div className="mx-4 my-2 p-3.5 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white shadow-2xl flex items-center justify-between animate-bounce">
+        <div className="mx-4 my-2 p-3.5 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white shadow-2xl flex items-center justify-between animate-bounce z-30">
           <div className="flex items-center space-x-2.5 text-xs font-bold">
-            <PartyPopper className="w-5 h-5" />
+            <PartyPopper className="w-5 h-5 flex-shrink-0" />
             <span>🎉 Milestone Reached! You both sent 10+ messages! Media sharing, voice notes, audio and video calls are unlocked!</span>
           </div>
           <button
             onClick={() => setUnlockedCelebration(false)}
-            className="text-white/80 hover:text-white text-xs px-2 py-1 rounded-lg bg-black/20"
+            className="text-white/80 hover:text-white text-xs px-2 py-1 rounded-lg bg-black/20 ml-2 flex-shrink-0"
           >
             ✕
           </button>
         </div>
       )}
+
       <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
         {/* Mutually Revealed Identities Banner */}
         {revealedStrangerProfile && (
@@ -1288,65 +1264,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             </div>
           </div>
         )}
-
-        {/* 3D Partner Profile & Reconnect Card */}
-        <div className="my-2 p-4 rounded-3xl bg-gradient-to-br from-indigo-950/70 via-slate-900/90 to-purple-950/70 border border-purple-500/30 shadow-lg shadow-purple-950/30 space-y-3 card-3d">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center space-x-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-indigo-950/50">
-                {room.strangerAlias.substring(0, 1)}
-              </div>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="font-bold text-white text-sm">
-                    {room.strangerAlias}
-                  </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800 font-semibold uppercase">
-                    {room.moodId}
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5 mt-1 text-xs">
-                  <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-800/50 font-medium">
-                    <MapPin className="w-3 h-3 text-cyan-400" />
-                    <span>{room.strangerCity || 'City Undisclosed'}</span>
-                  </span>
-                  <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-800/50 font-medium">
-                    <Calendar className="w-3 h-3 text-indigo-400" />
-                    <span>{room.strangerAge ? `${room.strangerAge} yrs` : '18+'}</span>
-                  </span>
-                  <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-pink-950/80 text-pink-300 border border-pink-800/50 font-medium">
-                    <Users className="w-3 h-3 text-pink-400" />
-                    <span>{room.strangerGender || 'Anonymous'}</span>
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Room Reconnect Code */}
-            {room.reconnectCode && (
-              <div className="flex items-center space-x-2 self-start sm:self-auto bg-slate-900/90 border border-purple-500/40 px-3 py-1.5 rounded-2xl">
-                <div className="text-left">
-                  <span className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold block">Reconnect Code</span>
-                  <span className="text-xs font-mono font-bold text-purple-300">{room.reconnectCode}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://hush-live-chat.vercel.app';
-                    const link = `${origin}?reconnect=${room.reconnectCode}`;
-                    navigator.clipboard.writeText(`Connect with me on HUSH AI: ${link} (Code: ${room.reconnectCode})`);
-                    setSaveToast(`Copied! Share this code to chat again later: ${room.reconnectCode}`);
-                    setTimeout(() => setSaveToast(null), 3500);
-                  }}
-                  className="p-1.5 rounded-xl bg-purple-600/80 hover:bg-purple-600 text-white text-[11px] transition-colors"
-                  title="Copy reconnect link & code"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
 
         {messages.map((msg) => {
           if (msg.sender === 'system') {
