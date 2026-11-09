@@ -6,6 +6,7 @@ import { MatchingScreen } from './components/MatchingScreen';
 import { ChatScreen } from './components/ChatScreen';
 import { AiStarterModal } from './components/AiStarterModal';
 import { ReconnectModal } from './components/ReconnectModal';
+import { VipUpgradeModal } from './components/VipUpgradeModal';
 import { ReportModal, BlockModal, SettingsModal } from './components/SafetyModals';
 import { chatService } from './services/chatService';
 import { ScreenState, MoodId, ChatRoom, UserSession, ReportReason } from './types';
@@ -31,6 +32,9 @@ export const App: React.FC = () => {
   // Direct Reconnect Modal State
   const [isReconnectOpen, setIsReconnectOpen] = useState(false);
   const [initialReconnectCode, setInitialReconnectCode] = useState<string>('');
+
+  // VIP Upgrade Modal State
+  const [isVipModalOpen, setIsVipModalOpen] = useState(false);
 
   // Toast / notification banner
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -184,6 +188,7 @@ export const App: React.FC = () => {
           setIsSettingsOpen(true);
         }}
         onOpenReconnect={() => setIsReconnectOpen(true)}
+        onOpenVip={() => setIsVipModalOpen(true)}
         onGoHome={() => {
           if (currentScreen === 'chat') {
             if (confirm("Leaving will end your anonymous conversation with this person. Continue?")) {
@@ -219,6 +224,7 @@ export const App: React.FC = () => {
             onSelectMoodAndFind={(mood, interests, persona) => startMatching(mood, interests, persona)}
             onBack={() => setCurrentScreen('welcome')}
             onOpenReconnect={() => setIsReconnectOpen(true)}
+            onOpenVip={() => setIsVipModalOpen(true)}
           />
         )}
 
@@ -241,9 +247,18 @@ export const App: React.FC = () => {
             onOpenAiStarter={() => setIsAiStarterOpen(true)}
             pendingAiText={pendingAiText}
             onClearPendingAiText={() => setPendingAiText(null)}
+            onOpenVip={() => setIsVipModalOpen(true)}
+            onRewind={(code) => handleStartReconnect(code)}
           />
         )}
       </main>
+
+      {/* VIP Upgrade Modal */}
+      <VipUpgradeModal
+        isOpen={isVipModalOpen}
+        onClose={() => setIsVipModalOpen(false)}
+        onVipChanged={() => setSession(chatService.getUserSession())}
+      />
 
       {/* Direct Reconnect Modal */}
       <ReconnectModal
